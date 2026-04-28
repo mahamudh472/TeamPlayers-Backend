@@ -11,6 +11,7 @@ from accounts.serializers import (
     VerifyEmailSerializer,
     ChangePasswordSerializer
 )
+from accounts.services import handle_logout
 from rest_framework import status
 from .utils import send_otp_email, check_otp, use_otp
 from accounts.models import User
@@ -183,16 +184,7 @@ class LogoutView(GenericAPIView):
     
     def post(self, request):
         try:
-            refresh_token = request.data.get('refresh_token')
-            if not refresh_token:
-                return Response(
-                    {"error": "Refresh token is required"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            
+            handle_logout(request)
             return Response(
                 {"message": "Successfully logged out"},
                 status=status.HTTP_205_RESET_CONTENT
