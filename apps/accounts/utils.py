@@ -1,4 +1,4 @@
-from accounts.models import User, OTP
+from .models import User, OTP
 from django.conf import settings
 from django.core.mail import send_mail
 from datetime import timedelta

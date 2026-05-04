@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from accounts.models import User
+from .models import User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .utils import send_otp_email
 

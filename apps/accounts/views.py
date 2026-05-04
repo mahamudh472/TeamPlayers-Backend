@@ -1,9 +1,8 @@
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.generics import GenericAPIView
-from accounts.serializers import (
+from .serializers import (
     CustomTokenObtainPairSerializer, 
     ResetPasswordConfirmSerializer,
     RegisterSerializer,
@@ -11,15 +10,13 @@ from accounts.serializers import (
     VerifyEmailSerializer,
     ChangePasswordSerializer
 )
-from accounts.services import handle_logout
+from .services import handle_logout
 from rest_framework import status
 from .utils import send_otp_email, check_otp, use_otp
-from accounts.models import User
+from .models import User
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
-
-
 
 class RegisterView(GenericAPIView):
     serializer_class = RegisterSerializer
