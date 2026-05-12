@@ -5,17 +5,20 @@ from .utils import send_otp_email
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        data = super().validate(attrs)
-        user = self.user
-        print("user:", user)
-        print("is_active:", user.is_active)
-        if user and not user.is_active:
-            send_otp_email(user)
-            raise serializers.ValidationError({
-                'detail': 'Account is not active. An OTP has been sent to your email for verification.',
-            })
+        email = attrs.get(self.username_field)
 
-        return data
+        try:
+            user = User.objects.get(email=email)
+            if not user.is_active:
+                send_otp_email(user)
+                raise serializers.ValidationError({
+                    'detail': 'Account is not active. An OTP has been sent to your email for verification.',
+                    'code': 'EMAIL_NOT_VERIFIED'
+                })
+        except User.DoesNotExist:
+            pass  # Let super().validate() handle it
+
+        return super().validate(attrs)
 
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:

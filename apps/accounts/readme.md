@@ -28,3 +28,7 @@
 - Update endpoints documentation
 - Add email templates
 - Add which configs are neccessary.
+### Next tasks
+-- Update endpoints documentation (see: ../../docs/endpoints/accounts.md)
+- Add email templates
+- Add which configs are neccessary.
