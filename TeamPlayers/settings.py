@@ -50,6 +50,7 @@ CORS_ALLOW_HEADERS = [
 # Application definition
 
 INSTALLED_APPS = [
+    'unfold',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -57,7 +58,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'apps.main',
     'apps.accounts',
+    'apps.agency',
+    'apps.finance',
 
     'rest_framework',
     'rest_framework_simplejwt',
