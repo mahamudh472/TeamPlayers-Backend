@@ -1,7 +1,7 @@
 import json
 import os
 from django.conf import settings
-from apps.finance.models import Plan
+from apps.finance.models import Plan, Subscription
 
 def seed_subscription_plans(file_path=None) -> dict:
     """
@@ -54,3 +54,10 @@ def seed_subscription_plans(file_path=None) -> dict:
             results['updated'] += 1
 
     return results
+
+
+def get_agency_current_subscription(agency_id) -> Subscription:
+    """
+    Retrieves the active subscription for the given agency.
+    """
+    return Subscription.objects.filter(agency_id=agency_id, is_active=True).first()

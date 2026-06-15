@@ -18,6 +18,15 @@ from .models import User
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == status.HTTP_200_OK:
+            # get agency of user if 
+            user = User.objects.get(email=request.data['email'])
+            agency = user.agencies.first()
+            response.data['agency_id'] = agency.id
+        return response
+
 class RegisterView(GenericAPIView):
     serializer_class = RegisterSerializer
 

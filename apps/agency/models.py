@@ -3,7 +3,7 @@ from django.db import models
 from apps.accounts.models import User
 
 class Agency(models.Model):
-    logo = models.ImageField(upload_to='agencies/logos/')
+    logo = models.ImageField(upload_to='agencies/logos/', blank=True, null=True)
     name = models.CharField(max_length=100)
 
     created_at = models.DateTimeField(auto_now_add=True)

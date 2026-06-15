@@ -1,0 +1,1 @@
+from .contact_message import create_contact_message
