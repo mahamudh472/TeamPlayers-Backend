@@ -15,5 +15,6 @@ YAGNI (You Ain’t Gonna Need It): Only implement functionality that is currentl
 Refactoring: Continuously improve code structure through regular reviews and test-driven development (TDD).
 ```
 
-- Maintain service layer for making views lightweight.
+- Maintain service layer for making views lightweight. It should maintained inside services directory in the related app
 - Maintain utils for neccessary utility functions.
+- Don't create testcase if not asked.

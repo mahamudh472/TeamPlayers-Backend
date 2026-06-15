@@ -6,6 +6,8 @@ class Plan(models.Model):
     description = models.TextField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     feature_list = models.TextField(blank=True, null=True)
+    currency = models.CharField(max_length=3, choices=[('USD', 'USD'), ('EUR', 'EUR'), ('GBP', 'GBP')], default='USD')
+    interval = models.CharField(max_length=10, choices=[('month', 'Month'), ('year', 'Year')], default='month')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
