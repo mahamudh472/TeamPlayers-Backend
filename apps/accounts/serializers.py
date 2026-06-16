@@ -21,16 +21,21 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return super().validate(attrs)
 
 class RegisterSerializer(serializers.ModelSerializer):
+    agency_name = serializers.CharField(write_only=True, required=False)
+
     class Meta:
         model = User
-        fields = ['id', 'full_name', 'email', 'password']
+        fields = ['id', 'full_name', 'email', 'password', 'agency_name']
+
     def create(self, validated_data):
-        user = User.objects.create_user(
+        agency_name = validated_data.pop('agency_name', None)
+        user = User(
             email=validated_data['email'],
             full_name=validated_data.get('full_name', ''),
         )
         user.set_password(validated_data['password'])
         user.is_active = False  # User will be activated after email verification
+        user.agency_name = agency_name
         user.save()
         
         return user
@@ -55,9 +60,12 @@ class ChangePasswordSerializer(serializers.Serializer):
         return data
     
 class UserSerializer(serializers.ModelSerializer):
+    agency_name = serializers.CharField(source='agencies.first.agency.name', read_only=True)
+    agency_id = serializers.IntegerField(source='agencies.first.agency.id', read_only=True)
+    role = serializers.CharField(source='agencies.first.role', read_only=True)
     class Meta:
         model = User
-        exclude = ['password']
+        fields = ['id', 'full_name', 'email', 'is_active', 'agency_name', 'agency_id', 'role', 'avatar']
 
 
 

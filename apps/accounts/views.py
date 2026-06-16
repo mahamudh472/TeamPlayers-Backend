@@ -146,7 +146,7 @@ class ProfileView(GenericAPIView):
     def get(self, request):
         user = request.user
         if self.serializer_class:
-            serializer = self.serializer_class(user)
+            serializer = self.serializer_class(user, context={"request": request})
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 

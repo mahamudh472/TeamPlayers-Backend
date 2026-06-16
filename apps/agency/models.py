@@ -10,7 +10,7 @@ class Agency(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Agency {self.id}"
+        return self.name if self.name else f"Agency {self.id}"
 
 class AgencyMember(models.Model):
     agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='members')
@@ -31,4 +31,4 @@ class AgencyMember(models.Model):
         verbose_name_plural = "Agency Members"
         
     def __str__(self):
-        return f"Agency Member {self.id}"
+        return f"{self.user.email} in {self.agency.name} as {self.role}"

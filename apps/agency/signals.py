@@ -10,4 +10,5 @@ def handle_user_created(sender, instance, created, **kwargs):
     whenever a new User is created.
     """
     if created:
-        create_agency_for_user(instance)
+        agency_name = getattr(instance, 'agency_name', None)
+        create_agency_for_user(instance, agency_name=agency_name)
