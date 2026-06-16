@@ -56,8 +56,18 @@ def seed_subscription_plans(file_path=None) -> dict:
     return results
 
 
-def get_agency_current_subscription(agency_id) -> Subscription:
+from django.utils import timezone
+from django.db.models import Q
+
+def get_agency_current_subscription(agency_id) -> Subscription | None:
     """
     Retrieves the active subscription for the given agency.
+    Assumes active status and checks that expires_at is null or in the future.
     """
-    return Subscription.objects.filter(agency_id=agency_id, is_active=True).first()
+    now = timezone.now()
+    return Subscription.objects.filter(
+        agency_id=agency_id,
+        is_active=True
+    ).filter(
+        Q(expires_at__isnull=True) | Q(expires_at__gt=now)
+    ).first()

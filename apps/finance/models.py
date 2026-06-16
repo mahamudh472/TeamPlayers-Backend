@@ -8,6 +8,8 @@ class Plan(models.Model):
     feature_list = models.TextField(blank=True, null=True)
     currency = models.CharField(max_length=3, choices=[('USD', 'USD'), ('EUR', 'EUR'), ('GBP', 'GBP')], default='USD')
     interval = models.CharField(max_length=10, choices=[('month', 'Month'), ('year', 'Year')], default='month')
+    stripe_product_id = models.CharField(max_length=255, blank=True, null=True)
+    stripe_price_id = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -29,6 +31,7 @@ class Subscription(models.Model):
     payment_status = models.CharField(max_length=20, choices=[('pending', 'Pending'), ('paid', 'Paid'), ('failed', 'Failed')], default='pending')
     payment_method = models.CharField(max_length=20, choices=[('stripe', 'Stripe'), ('paypal', 'Paypal')], default='stripe')
     transaction_id = models.CharField(max_length=100, blank=True, null=True)
+    stripe_subscription = models.ForeignKey('djstripe.Subscription', on_delete=models.SET_NULL, null=True, blank=True, related_name='local_subscriptions')
 
     def __str__(self):
         return f"Subscription {self.id}"

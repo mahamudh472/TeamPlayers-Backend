@@ -16,6 +16,47 @@ from datetime import timedelta
 from dotenv import load_dotenv
 load_dotenv()
 
+# Stripe SDK Compatibility Monkeypatches for dj-stripe
+import stripe
+import json
+
+if not hasattr(stripe.StripeObject, 'get'):
+    def stripe_get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+    stripe.StripeObject.get = stripe_get
+
+if not hasattr(stripe.StripeObject, 'keys'):
+    def stripe_keys(self):
+        return self._data.keys()
+    stripe.StripeObject.keys = stripe_keys
+
+if not hasattr(stripe.StripeObject, 'values'):
+    def stripe_values(self):
+        return self._data.values()
+    stripe.StripeObject.values = stripe_values
+
+if not hasattr(stripe.StripeObject, 'items'):
+    def stripe_items(self):
+        return self._data.items()
+    stripe.StripeObject.items = stripe_items
+
+# Support json serialization of StripeObjects in Django JSONFields
+from django.core.serializers.json import DjangoJSONEncoder
+django_encoder = DjangoJSONEncoder()
+original_json_default = json.JSONEncoder.default
+
+def custom_json_default(self, o):
+    if isinstance(o, stripe.StripeObject):
+        return o.to_dict()
+    try:
+        return django_encoder.default(o)
+    except TypeError:
+        return original_json_default(self, o)
+json.JSONEncoder.default = custom_json_default
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -63,6 +104,7 @@ INSTALLED_APPS = [
     'apps.accounts',
     'apps.agency',
     'apps.finance',
+    'djstripe',
 
     'rest_framework',
     'rest_framework_simplejwt',
@@ -79,6 +121,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.agency.middleware.AgencyMiddleware',
 ]
 
 ROOT_URLCONF = 'TeamPlayers.urls'
@@ -104,12 +147,27 @@ WSGI_APPLICATION = 'TeamPlayers.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DATABASE_TYPE = os.getenv('DATABASE_TYPE', 'sqlite')
+
+if DATABASE_TYPE == 'postgres':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('POSTGRES_DB', 'visulara_db'),
+            'USER': os.getenv('POSTGRES_USER', 'postgres'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
+            'HOST': os.getenv('POSTGRES_HOST', 'db'),
+            'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / os.getenv('SQLITE_DB_NAME', 'db.sqlite3'),
+        }
+    }
+
 
 
 CACHES = {
@@ -187,6 +245,18 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
+
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY')
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
+
+STRIPE_LIVE_MODE = False
+STRIPE_TEST_PUBLIC_KEY = STRIPE_PUBLISHABLE_KEY
+STRIPE_TEST_SECRET_KEY = STRIPE_SECRET_KEY
+DJSTRIPE_WEBHOOK_SECRET = STRIPE_WEBHOOK_SECRET
+DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"
+
+FRONTEND_URL = os.getenv("FRONTEND_URL")
 
 # Logger config
 from .logger_conf import LOGGING

@@ -4,6 +4,7 @@ charset-normalizer==3.4.7
 dj-stripe==2.10.3
 django==6.0.4
 django-cors-headers==4.9.0
+django-redis==7.0.0
 django-stubs==6.0.3
 django-stubs-ext==6.0.3
 django-types==0.24.0
@@ -17,8 +18,10 @@ mypy==1.19.1
 mypy-extensions==1.1.0
 pathspec==1.0.4
 pillow==12.2.0
+psycopg2-binary==2.9.12
 pyjwt==2.12.1
 python-dotenv==1.2.2
+redis==8.0.0
 requests==2.34.2
 sqlparse==0.5.5
 stripe==15.2.1
