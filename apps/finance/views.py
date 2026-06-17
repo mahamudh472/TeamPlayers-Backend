@@ -69,7 +69,6 @@ class AgencyCurrentPlanView(APIView):
 
         plan_serializer = PlanSerializer(subscription.plan)
         return Response({
-            "plan": plan_serializer.data,
             "subscription": {
                 "id": subscription.id,
                 "is_active": subscription.is_active,
@@ -77,6 +76,7 @@ class AgencyCurrentPlanView(APIView):
                 "payment_status": subscription.payment_status,
                 "payment_method": subscription.payment_method,
                 "transaction_id": subscription.transaction_id,
+                "plan": subscription.plan_snapshot,
             }
         }, status=status.HTTP_200_OK)
 

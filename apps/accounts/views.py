@@ -8,9 +8,10 @@ from .serializers import (
     RegisterSerializer,
     UserSerializer, 
     VerifyEmailSerializer,
-    ChangePasswordSerializer
+    ChangePasswordSerializer,
+    NotificationSettingsSerializer
 )
-from .services import handle_logout
+from .services import handle_logout, get_or_create_notification_settings, update_notification_settings
 from rest_framework import status
 from .utils import send_otp_email, check_otp, use_otp
 from .models import User
@@ -200,3 +201,29 @@ class LogoutView(GenericAPIView):
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class NotificationSettingsView(GenericAPIView):
+    serializer_class = NotificationSettingsSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Retrieves the notification settings for the authenticated user.
+        If it doesn't exist, it will create one automatically.
+        """
+        settings = get_or_create_notification_settings(request.user)
+        serializer = self.get_serializer(settings)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        """
+        Updates the notification settings for the authenticated user.
+        """
+        serializer = self.get_serializer(data=request.data, partial=True)
+        if serializer.is_valid():
+            settings = update_notification_settings(request.user, serializer.validated_data)
+            response_serializer = self.get_serializer(settings)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+

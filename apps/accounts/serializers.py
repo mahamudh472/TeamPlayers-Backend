@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User
+from .models import User, NotificationSettings
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .utils import send_otp_email
 
@@ -66,6 +66,19 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'full_name', 'email', 'is_active', 'agency_name', 'agency_id', 'role', 'avatar']
+
+
+class NotificationSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationSettings
+        fields = [
+            'new_application',
+            'interview_reminder',
+            'new_lead',
+            'weekly_report',
+            'marketing_email',
+        ]
+
 
 
 

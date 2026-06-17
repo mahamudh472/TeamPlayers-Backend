@@ -18,4 +18,15 @@ This index lists available API endpoints and links to the per-app reference page
 
 ---
 
+### Agency
+
+- [GET  /api/v1/agency/leads/](endpoints/agency.md) — List agency leads, filterable by status, with status counts (authenticated)
+- [GET  /api/v1/agency/leads/<id>/](endpoints/agency.md) — Retrieve details of a single lead, including its notes (authenticated)
+- [POST /api/v1/agency/leads/<id>/notes/](endpoints/agency.md) — Add a new note for a lead (authenticated)
+- [PATCH /api/v1/agency/leads/<id>/status/](endpoints/agency.md) — Change a lead's status (authenticated)
+- [POST /api/v1/agency/webhooks/leads/](endpoints/agency.md) — Ingest leads from external webhook (secret-verified)
+
+---
+
 Add other apps here as their endpoint pages are created under `docs/endpoints/`.
+

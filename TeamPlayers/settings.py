@@ -258,6 +258,9 @@ DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"
 
 FRONTEND_URL = os.getenv("FRONTEND_URL")
 
+LEADS_WEBHOOK_SECRET = os.getenv('LEADS_WEBHOOK_SECRET', 'default_leads_webhook_secret_key')
+
+
 # Logger config
 from .logger_conf import LOGGING
 

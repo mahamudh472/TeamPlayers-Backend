@@ -17,4 +17,5 @@ urlpatterns = [
     path('change-password/', views.ChangePasswordView.as_view(), name='change_password'),
     path('profile/', views.ProfileView.as_view(), name='profile'),
     path('profile/update/', views.UpdateProfileView.as_view(), name='profile_update'),
+    path('settings/notifications/', views.NotificationSettingsView.as_view(), name='notification_settings'),
 ]

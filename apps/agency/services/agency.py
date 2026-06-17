@@ -35,3 +35,31 @@ def get_user_agencies(user) -> QuerySet[AgencyMember]:
         invitation_status='accepted'
     ).select_related('agency')
 
+
+def get_verified_agency(user, agency_id) -> Agency:
+    """
+    Validates that the agency exists and the user is an active, accepted member of it.
+    Raises PermissionDenied or NotFound if invalid.
+    """
+    from rest_framework.exceptions import PermissionDenied, NotFound
+
+    if not agency_id:
+        raise PermissionDenied("X-Agency-ID header is required")
+    try:
+        agency = Agency.objects.get(id=agency_id)
+    except (Agency.DoesNotExist, ValueError):
+        raise NotFound("Agency not found")
+        
+    is_member = AgencyMember.objects.filter(
+        agency=agency,
+        user=user,
+        invitation_status='accepted',
+        is_active=True
+    ).exists()
+    
+    if not is_member:
+        raise PermissionDenied("You do not have permission to access this agency")
+        
+    return agency
+
+

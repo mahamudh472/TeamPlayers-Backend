@@ -73,3 +73,18 @@ class OTP(models.Model):
         return not self.is_used and timezone.now() < self.expires_at
 
 
+class NotificationSettings(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='notification_settings')
+    new_application = models.BooleanField(default=True)
+    interview_reminder = models.BooleanField(default=True)
+    new_lead = models.BooleanField(default=True)
+    weekly_report = models.BooleanField(default=True)
+    marketing_email = models.BooleanField(default=True)
+    
+    class Meta:
+        db_table = 'notification_settings'
+        verbose_name = 'Notification Settings'
+        verbose_name_plural = 'Notification Settings'
+    
+    def __str__(self):
+        return f"{self.user.email} - Notification Settings"
