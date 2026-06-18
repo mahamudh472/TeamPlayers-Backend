@@ -70,8 +70,8 @@ class Note(models.Model):
     content = models.TextField()
     model = models.CharField(max_length=20, choices=[
         ('lead', 'Lead'), 
-        ('task', 'Task'), 
-        ('event', 'Event')
+        ('client', 'Client'), 
+        ('meeting', 'Meeting')
         ],
     )
     model_id = models.PositiveIntegerField(null=True, blank=True)
@@ -88,4 +88,58 @@ class Note(models.Model):
     def __str__(self):
         return self.content if self.content else f"Note {self.id}"
 
+class Client(models.Model):
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='clients')
+    lead = models.ForeignKey(Leads, on_delete=models.CASCADE, related_name='clients', blank=True, null=True)
+    
+    company = models.CharField(max_length=100)
+    contact_person = models.CharField(max_length=100, blank=True, null=True)
+    contact_email = models.EmailField(blank=True, null=True)
+    contact_phone = models.CharField(max_length=15, blank=True, null=True)
+    location = models.CharField(max_length=100, blank=True, null=True)
+    industry = models.CharField(max_length=100, blank=True, null=True)
 
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Client"
+        verbose_name_plural = "Clients"
+
+    def __str__(self):
+        if self.lead and self.lead.company:
+            return self.lead.company
+        return self.company if self.company else f"Client {self.id}"
+
+class ClientAISummary(models.Model):
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='ai_summaries')
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='client_ai_summaries')
+    
+    summary = models.TextField(blank=True, null=True)
+    collabration_strength = models.JSONField(default=list, blank=True, null=True)
+    risks = models.JSONField(default=list, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Client AI Summary"
+        verbose_name_plural = "Client AI Summaries"
+
+    def __str__(self):
+        return f"Client AI Summary {self.id} for {self.client.company}"
+
+class ClientActivity(models.Model):
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='activities')
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='client_activities')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='client_activities')
+    summary = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Client Activity"
+        verbose_name_plural = "Client Activities"
+
+    def __str__(self):
+        return self.summary if self.summary else f"Client Activity {self.id}"   

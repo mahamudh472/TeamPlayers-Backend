@@ -9,6 +9,10 @@ Back to index: [ENDPOINT_LIST.md](../ENDPOINT_LIST.md)
 - POST `/api/v1/agency/leads/<id>/notes/` — Add a new note for a lead.
 - PATCH `/api/v1/agency/leads/<id>/status/` — Change a lead's status.
 - POST `/api/v1/agency/webhooks/leads/` — Bulk lead ingestion webhook (unauthenticated, secret-verified).
+- GET `/api/v1/agency/clients/` — List clients with search, pagination, and static summary metrics.
+- POST `/api/v1/agency/clients/` — Create a new client manually.
+- GET `/api/v1/agency/clients/<id>/` — Retrieve details of a single client.
+- PATCH `/api/v1/agency/clients/<id>/` — Update details of a single client.
 
 ---
 
@@ -324,5 +328,209 @@ Error responses:
   "detail": "Lead not found"
 }
 ```
+
+
+---
+
+## GET /api/v1/agency/clients/
+
+Description: Retrieve all clients belonging to the agency. Results can be paginated and filtered using the `search` query parameter. The search matches against company, contact person, contact email, location, industry, or contact phone. Also includes static summary metrics: `active_clients`, `total_revenue`, and `placement_rate`.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Query Parameters:
+- `search` (Optional) — Filter clients by a search term.
+- `page` (Optional) — Page number.
+- `page_size` (Optional) — Page size limit.
+
+Success response (200):
+
+```json
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "active_clients": 12,
+  "total_revenue": 45000.0,
+  "placement_rate": 85.5,
+  "results": [
+    {
+      "id": 1,
+      "lead": 5,
+      "company": "Acme Corp",
+      "contact_person": "John Doe",
+      "contact_email": "john.doe@acme.com",
+      "contact_phone": "+15550100",
+      "location": "New York, NY",
+      "industry": "Manufacturing",
+      "is_active": true,
+      "jobs": 3,
+      "placements": 2,
+      "revenue": 15000.0,
+      "created_at": "2026-06-18T10:00:00.123456Z",
+      "updated_at": "2026-06-18T10:00:00.123456Z"
+    }
+  ]
+}
+```
+
+Error responses:
+- 400: Header missing
+```json
+{ "detail": "X-Agency-ID header is required" }
+```
+- 403: Forbidden (User not in agency)
+```json
+{ "detail": "You do not have permission to access this agency" }
+```
+
+---
+
+## POST /api/v1/agency/clients/
+
+Description: Manually create a new client for the agency. The client does not reference any existing Lead.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Request JSON:
+
+```json
+{
+  "company": "Innovative Labs",
+  "contact_person": "Alice Smith",
+  "contact_email": "alice@innovativelabs.com",
+  "contact_phone": "+15550220",
+  "location": "Boston, MA",
+  "industry": "Biotech",
+  "is_active": true,
+  "note": "Initial introductory meeting went very well."
+}
+```
+
+Success response (201):
+
+```json
+{
+  "message": "Client created successfully"
+}
+```
+
+Error responses:
+- 400: Validation error (e.g. missing required field `company`)
+```json
+{
+  "company": [
+    "This field is required."
+  ]
+}
+```
+
+---
+
+## GET /api/v1/agency/clients/<id>/
+
+Description: Retrieve details of a single client.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Success response (200):
+
+```json
+{
+  "id": 1,
+  "lead": 5,
+  "company": "Acme Corp",
+  "contact_person": "John Doe",
+  "contact_email": "john.doe@acme.com",
+  "contact_phone": "+15550100",
+  "location": "New York, NY",
+  "industry": "Manufacturing",
+  "is_active": true,
+  "jobs": 3,
+  "placements": 2,
+  "revenue": 15000.0,
+  "success_rate": 92.5,
+  "last_ai_summary": {
+    "id": 1,
+    "summary": "This client has strong hiring trends but some risk of role cancellations.",
+    "collabration_strength": ["high", "medium"],
+    "risks": ["role cancellation"],
+    "created_at": "2026-06-18T11:00:00.123456Z",
+    "updated_at": "2026-06-18T11:00:00.123456Z"
+  },
+  "client_health": "healthy",
+  "hiring_success_rate": 88.0,
+  "recommended_actions": [
+    "Schedule quarterly review meeting",
+    "Follow up on pending candidate interviews",
+    "Send renewal proposal for the technical consulting contract"
+  ],
+  "created_at": "2026-06-18T10:00:00.123456Z",
+  "updated_at": "2026-06-18T10:00:00.123456Z"
+}
+```
+
+Error responses:
+- 404: Client not found
+```json
+{ "detail": "Client not found" }
+```
+
+---
+
+## PATCH /api/v1/agency/clients/<id>/
+
+Description: Update detailed information for a single client. The `note` field is excluded and not allowed on client updates.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Request JSON:
+
+```json
+{
+  "contact_person": "Jane Doe",
+  "contact_email": "jane.doe@acme.com"
+}
+```
+
+Success response (200):
+
+```json
+{
+  "message": "Client updated successfully"
+}
+```
+
+Error responses:
+- 400: Validation error (e.g. attempting to update the note field)
+```json
+{
+  "note": [
+    "The note field is not allowed on client update."
+  ]
+}
+```
+- 404: Client not found
+```json
+{ "detail": "Client not found" }
+```
+
+
 
 

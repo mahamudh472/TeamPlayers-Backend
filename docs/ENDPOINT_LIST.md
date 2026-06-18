@@ -25,6 +25,10 @@ This index lists available API endpoints and links to the per-app reference page
 - [POST /api/v1/agency/leads/<id>/notes/](endpoints/agency.md) — Add a new note for a lead (authenticated)
 - [PATCH /api/v1/agency/leads/<id>/status/](endpoints/agency.md) — Change a lead's status (authenticated)
 - [POST /api/v1/agency/webhooks/leads/](endpoints/agency.md) — Ingest leads from external webhook (secret-verified)
+- [GET  /api/v1/agency/clients/](endpoints/agency.md) — List agency clients with search, pagination, and static summary metrics (authenticated)
+- [POST /api/v1/agency/clients/](endpoints/agency.md) — Create a new client manually (authenticated)
+- [GET  /api/v1/agency/clients/<id>/](endpoints/agency.md) — Retrieve details of a single client (authenticated)
+- [PATCH /api/v1/agency/clients/<id>/](endpoints/agency.md) — Update details of a single client (authenticated)
 
 ---
 

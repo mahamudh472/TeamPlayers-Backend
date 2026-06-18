@@ -4,7 +4,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
 from apps.agency.models import Agency
-from apps.agency.services import get_user_agencies, get_verified_agency
+from apps.agency.services import (
+    get_user_agencies,
+    get_verified_agency,
+    get_agency_clients,
+    get_agency_client_by_id,
+    create_manual_client,
+    update_client
+)
 from apps.agency.services.leads import (
     get_agency_leads,
     get_agency_lead_by_id,
@@ -17,7 +24,9 @@ from apps.agency.serializers import (
     UserAgencySerializer,
     LeadSerializer,
     LeadDetailSerializer,
-    NoteSerializer
+    NoteSerializer,
+    ClientSerializer,
+    ClientDetailSerializer
 )
 from apps.agency.paginations import StandardResultsSetPagination
 
@@ -188,6 +197,106 @@ class LeadChangeStatusView(APIView):
         lead = update_lead_status(agency, pk, status_val)
         serializer = LeadSerializer(lead)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ClientListView(APIView):
+    """
+    API endpoint to list and search clients, or create a client manually.
+    
+    GET:
+        Returns a paginated list of clients for the agency.
+        Supports search via '?search=<query>' across company, contact details, location, and industry.
+        Includes static summary statistics: active_clients, total_revenue, placement_rate.
+        
+    POST:
+        Manually creates a new client for the agency.
+        Requires client details in payload.
+        
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+
+    def get(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        search_query = request.query_params.get('search')
+        clients = get_agency_clients(agency, search_query)
+        
+        # TODO: Replace static values with dynamic calculations once data tracking is implemented.
+        active_clients = 12
+        total_revenue = 45000.0
+        placement_rate = 85.5
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(clients, request, view=self)
+        if page is not None:
+            serializer = ClientSerializer(page, many=True)
+            return Response({
+                "count": paginator.page.paginator.count,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "active_clients": active_clients,
+                "total_revenue": total_revenue,
+                "placement_rate": placement_rate,
+                "results": serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        serializer = ClientSerializer(clients, many=True)
+        return Response({
+            "active_clients": active_clients,
+            "total_revenue": total_revenue,
+            "placement_rate": placement_rate,
+            "results": serializer.data
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        serializer = ClientSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        client = create_manual_client(agency, serializer.validated_data, user=request.user)
+        return Response({"message": "Client created successfully"}, status=status.HTTP_201_CREATED)
+
+
+class ClientDetailView(APIView):
+    """
+    API endpoint to retrieve or update details of a specific client.
+    
+    GET:
+        Returns client profile details by ID.
+        
+    PATCH:
+        Partially updates client profile details.
+        
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        client = get_agency_client_by_id(agency, pk)
+        serializer = ClientDetailSerializer(client)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        client = get_agency_client_by_id(agency, pk)
+        serializer = ClientDetailSerializer(client, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        
+        updated_client = update_client(agency, client, serializer.validated_data)
+        return Response({"message": "Client updated successfully"}, status=status.HTTP_200_OK)
+
 
 
 
