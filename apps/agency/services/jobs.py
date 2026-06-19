@@ -52,3 +52,14 @@ def update_agency_job(agency: Agency, job: Job, job_data: dict) -> Job:
         setattr(job, field, value)
     job.save()
     return job
+
+def get_client_jobs(agency: Agency, client_id: int, status_filter: str = None) -> QuerySet[Job]:
+    """
+    Returns jobs associated with a client, optionally filtered by status.
+    """
+    from apps.agency.services.clients import get_agency_client_by_id
+    client = get_agency_client_by_id(agency, client_id)
+    queryset = Job.objects.filter(agency=agency, client=client).order_by('-created_at')
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+    return queryset

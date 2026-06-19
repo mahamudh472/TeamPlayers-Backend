@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.agency.models import AgencyMember, Leads, Note, Client, ClientAISummary, Job
+from apps.agency.models import AgencyMember, Leads, Note, Client, ClientAISummary, Job, ClientActivity
 from apps.accounts.models import User
 
 class UserAgencySerializer(serializers.ModelSerializer):
@@ -115,12 +115,11 @@ class ClientSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'lead', 'created_at', 'updated_at']
 
     def get_jobs(self, obj):
-        # TODO: Make this dynamic once we have data tracking
-        return 3
+        return obj.jobs.count()
 
     def get_placements(self, obj):
         # TODO: Make this dynamic once we have data tracking
-        return 2
+        return 0
 
     def get_revenue(self, obj):
         # TODO: Make this dynamic once we have data tracking
@@ -136,6 +135,22 @@ class ClientAISummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientAISummary
         fields = ['id', 'summary', 'collabration_strength', 'risks', 'created_at', 'updated_at']
+
+
+class ClientActivitySerializer(serializers.ModelSerializer):
+    user = UserMinSerializer(read_only=True)
+
+    class Meta:
+        model = ClientActivity
+        fields = [
+            'id',
+            'client',
+            'user',
+            'summary',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'client', 'user', 'created_at', 'updated_at']
 
 
 class ClientDetailSerializer(ClientSerializer):

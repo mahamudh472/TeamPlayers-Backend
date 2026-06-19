@@ -1,5 +1,6 @@
 from django.db.models import Q, QuerySet
-from apps.agency.models import Agency, Client, Note
+from apps.agency.models import Agency, Client, Note, ClientActivity
+from apps.accounts.models import User
 from rest_framework.exceptions import NotFound
 
 def get_agency_clients(agency: Agency, search_query: str = None) -> QuerySet[Client]:
@@ -64,5 +65,40 @@ def update_client(agency: Agency, client: Client, client_data: dict) -> Client:
     client.save()
         
     return client
+
+def get_client_activities(agency: Agency, client_id: int) -> QuerySet[ClientActivity]:
+    """
+    Returns activities associated with the client for the agency.
+    """
+    client = get_agency_client_by_id(agency, client_id)
+    return ClientActivity.objects.filter(
+        agency=agency,
+        client=client
+    ).select_related('user').order_by('-created_at')
+
+def get_client_notes(agency: Agency, client_id: int) -> QuerySet[Note]:
+    """
+    Returns notes associated with the client for the agency.
+    """
+    client = get_agency_client_by_id(agency, client_id)
+    return Note.objects.filter(
+        agency=agency,
+        model='client',
+        model_id=client.id
+      ).select_related('user').order_by('-created_at')
+
+def add_note_to_client(agency: Agency, user: User, client_id: int, content: str) -> Note:
+    """
+    Verifies client existence and adds a note to it.
+    """
+    client = get_agency_client_by_id(agency, client_id)
+    note = Note.objects.create(
+        content=content,
+        model='client',
+        model_id=client.id,
+        user=user,
+        agency=agency
+    )
+    return note
 
 

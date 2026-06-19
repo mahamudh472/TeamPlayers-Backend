@@ -9,7 +9,10 @@ from .views import (
     ClientListView,
     ClientDetailView,
     JobListView,
-    JobDetailView
+    JobDetailView,
+    ClientJobsListView,
+    ClientActivityListView,
+    ClientNotesView
 )
 
 urlpatterns = [
@@ -22,6 +25,9 @@ urlpatterns = [
     
     path('clients/', ClientListView.as_view(), name='client_list'),
     path('clients/<int:pk>/', ClientDetailView.as_view(), name='client_detail'),
+    path('clients/<int:pk>/jobs/', ClientJobsListView.as_view(), name='client_jobs_list'),
+    path('clients/<int:pk>/activities/', ClientActivityListView.as_view(), name='client_activity_list'),
+    path('clients/<int:pk>/notes/', ClientNotesView.as_view(), name='client_notes'),
 
     path('jobs/', JobListView.as_view(), name='job_list'),
     path('jobs/<int:pk>/', JobDetailView.as_view(), name='job_detail'),

@@ -13,6 +13,10 @@ Back to index: [ENDPOINT_LIST.md](../ENDPOINT_LIST.md)
 - POST `/api/v1/agency/clients/` — Create a new client manually.
 - GET `/api/v1/agency/clients/<id>/` — Retrieve details of a single client.
 - PATCH `/api/v1/agency/clients/<id>/` — Update details of a single client.
+- GET `/api/v1/agency/clients/<id>/jobs/` — List active jobs for a specific client.
+- GET `/api/v1/agency/clients/<id>/activities/` — List activity history for a specific client.
+- GET `/api/v1/agency/clients/<id>/notes/` — List notes for a specific client.
+- POST `/api/v1/agency/clients/<id>/notes/` — Add a new note for a specific client.
 - GET `/api/v1/agency/jobs/` — List jobs with search, pagination, and static summary metrics.
 - POST `/api/v1/agency/jobs/` — Create a new job.
 - GET `/api/v1/agency/jobs/<id>/` — Retrieve details of a single job.
@@ -529,6 +533,195 @@ Error responses:
     "The note field is not allowed on client update."
   ]
 }
+```
+- 404: Client not found
+```json
+{ "detail": "Client not found" }
+```
+
+---
+
+## GET /api/v1/agency/clients/<id>/jobs/
+
+Description: Retrieve active jobs for a specific client. By default, it returns jobs where `status='open'` (active) to populate the "Active Jobs" UI section. The results can be customized to include all jobs or jobs of other statuses using the `status` query parameter.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Query Parameters:
+- `status` (Optional) — Filter jobs by status choices: `open`, `closed`, `filled`, or `all` to disable status filtering. Default is `open`.
+
+Success response (200):
+
+```json
+[
+  {
+    "id": 1,
+    "client": 2,
+    "client_name": "Innovative Labs",
+    "title": "Senior Software Engineer",
+    "description": "Develop and maintain robust web services and integrations.",
+    "location": "London, UK",
+    "salary_range": "£70,000 - £90,000",
+    "experince_required": 5,
+    "skills": ["Python", "Django", "PostgreSQL"],
+    "job_type": "remote",
+    "status": "open",
+    "description_file": null,
+    "applicants": 45,
+    "shortlisted": 8,
+    "interviewed": 2,
+    "created_at": "2026-06-18T12:00:00.123456Z",
+    "updated_at": "2026-06-18T12:00:00.123456Z"
+  },
+  {
+    "id": 2,
+    "client": 2,
+    "client_name": "Innovative Labs",
+    "title": "Product Manager",
+    "description": "Manage the lifecycle of technical products and lead scrum teams.",
+    "location": "Manchester, UK",
+    "salary_range": "£60,000 - £80,000",
+    "experince_required": 3,
+    "skills": ["Agile", "Scrum", "Product Backlog"],
+    "job_type": "hybrid",
+    "status": "open",
+    "description_file": null,
+    "applicants": 32,
+    "shortlisted": 6,
+    "interviewed": 1,
+    "created_at": "2026-06-18T12:30:00.123456Z",
+    "updated_at": "2026-06-18T12:30:00.123456Z"
+  }
+]
+```
+
+Error responses:
+- 404: Client not found
+```json
+{ "detail": "Client not found" }
+```
+
+---
+
+## GET /api/v1/agency/clients/<id>/activities/
+
+Description: Retrieve a history of activities associated with a specific client.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Success response (200):
+
+```json
+[
+  {
+    "id": 1,
+    "client": 2,
+    "user": {
+      "id": "e229d494-b152-4752-95b6-6d2745cf0249",
+      "email": "agent@agency.com",
+      "full_name": "Agency Agent"
+    },
+    "summary": "Sent a follow-up email about candidate resumes",
+    "created_at": "2026-06-19T09:00:00.123456Z",
+    "updated_at": "2026-06-19T09:00:00.123456Z"
+  }
+]
+```
+
+Error responses:
+- 404: Client not found
+```json
+{ "detail": "Client not found" }
+```
+
+---
+
+## GET /api/v1/agency/clients/<id>/notes/
+
+Description: Retrieve all notes associated with a specific client, ordered newest first.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Success response (200):
+
+```json
+[
+  {
+    "id": 12,
+    "content": "Requested updated pricing for contracting roles.",
+    "model": "client",
+    "model_id": 2,
+    "user": {
+      "id": "e229d494-b152-4752-95b6-6d2745cf0249",
+      "email": "agent@agency.com",
+      "full_name": "Agency Agent"
+    },
+    "created_at": "2026-06-19T08:30:00.123456Z",
+    "updated_at": "2026-06-19T08:30:00.123456Z"
+  }
+]
+```
+
+Error responses:
+- 404: Client not found
+```json
+{ "detail": "Client not found" }
+```
+
+---
+
+## POST /api/v1/agency/clients/<id>/notes/
+
+Description: Add a new text note for a specific client.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Request JSON:
+
+```json
+{
+  "content": "Had a status update call, client is happy with candidates."
+}
+```
+
+Success response (201):
+
+```json
+{
+  "id": 13,
+  "content": "Had a status update call, client is happy with candidates.",
+  "model": "client",
+  "model_id": 2,
+  "user": {
+    "id": "e229d494-b152-4752-95b6-6d2745cf0249",
+    "email": "agent@agency.com",
+    "full_name": "Agency Agent"
+  },
+  "created_at": "2026-06-19T10:50:00.123456Z",
+  "updated_at": "2026-06-19T10:50:00.123456Z"
+}
+```
+
+Error responses:
+- 400: Content missing or empty
+```json
+{ "error": "content is required and cannot be empty" }
 ```
 - 404: Client not found
 ```json

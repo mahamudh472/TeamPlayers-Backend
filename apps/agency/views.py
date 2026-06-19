@@ -31,7 +31,14 @@ from apps.agency.serializers import (
     NoteSerializer,
     ClientSerializer,
     ClientDetailSerializer,
-    JobSerializer
+    JobSerializer,
+    ClientActivitySerializer
+)
+from apps.agency.services.jobs import get_client_jobs
+from apps.agency.services.clients import (
+    get_client_activities,
+    get_client_notes,
+    add_note_to_client
 )
 from apps.agency.paginations import StandardResultsSetPagination
 
@@ -231,7 +238,7 @@ class ClientListView(APIView):
         clients = get_agency_clients(agency, search_query)
         
         # TODO: Replace static values with dynamic calculations once data tracking is implemented.
-        active_clients = 12
+        active_clients = agency.clients.count()
         total_revenue = 45000.0
         placement_rate = 85.5
 
@@ -405,6 +412,75 @@ class JobDetailView(APIView):
         updated_job = update_agency_job(agency, job, serializer.validated_data)
         response_serializer = JobSerializer(updated_job)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+class ClientJobsListView(APIView):
+    """
+    API endpoint to list jobs for a specific client.
+    By default, it filters to active (open) jobs, matching the 'Active Jobs' UI section.
+    Requires header: X-Agency-ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        # Default to 'open' status for active jobs section, support overriding
+        status_filter = request.query_params.get('status', 'open')
+        if status_filter == 'all':
+            status_filter = None
+
+        jobs = get_client_jobs(agency, pk, status_filter=status_filter)
+        serializer = JobSerializer(jobs, many=True, context={'agency': agency})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ClientActivityListView(APIView):
+    """
+    API endpoint to list activities for a specific client.
+    Requires header: X-Agency-ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        activities = get_client_activities(agency, pk)
+        serializer = ClientActivitySerializer(activities, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ClientNotesView(APIView):
+    """
+    API endpoint to list and add notes for a specific client.
+    Requires header: X-Agency-ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        notes = get_client_notes(agency, pk)
+        serializer = NoteSerializer(notes, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        content = request.data.get('content')
+        if not content or not content.strip():
+            return Response(
+                {"error": "content is required and cannot be empty"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        note = add_note_to_client(agency, request.user, pk, content)
+        serializer = NoteSerializer(note)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 
