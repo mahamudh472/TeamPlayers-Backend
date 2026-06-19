@@ -29,6 +29,10 @@ This index lists available API endpoints and links to the per-app reference page
 - [POST /api/v1/agency/clients/](endpoints/agency.md) — Create a new client manually (authenticated)
 - [GET  /api/v1/agency/clients/<id>/](endpoints/agency.md) — Retrieve details of a single client (authenticated)
 - [PATCH /api/v1/agency/clients/<id>/](endpoints/agency.md) — Update details of a single client (authenticated)
+- [GET  /api/v1/agency/jobs/](endpoints/agency.md) — List agency jobs with search, pagination, and static summary metrics (authenticated)
+- [POST /api/v1/agency/jobs/](endpoints/agency.md) — Create a new job (authenticated)
+- [GET  /api/v1/agency/jobs/<id>/](endpoints/agency.md) — Retrieve details of a single job (authenticated)
+- [PATCH /api/v1/agency/jobs/<id>/](endpoints/agency.md) — Update details of a single job (authenticated)
 
 ---
 

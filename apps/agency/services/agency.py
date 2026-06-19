@@ -1,5 +1,12 @@
 from django.db.models import QuerySet
 from apps.agency.models import Agency, AgencyMember
+from rest_framework.exceptions import APIException, PermissionDenied, NotFound
+from rest_framework import status
+
+class HeaderMissingException(APIException):
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = 'X-Agency-ID header is required'
+    default_code = 'header_missing'
 
 def create_agency_for_user(user, agency_name=None) -> Agency:
     """
@@ -39,12 +46,10 @@ def get_user_agencies(user) -> QuerySet[AgencyMember]:
 def get_verified_agency(user, agency_id) -> Agency:
     """
     Validates that the agency exists and the user is an active, accepted member of it.
-    Raises PermissionDenied or NotFound if invalid.
+    Raises HeaderMissingException, PermissionDenied, or NotFound if invalid.
     """
-    from rest_framework.exceptions import PermissionDenied, NotFound
-
     if not agency_id:
-        raise PermissionDenied("X-Agency-ID header is required")
+        raise HeaderMissingException()
     try:
         agency = Agency.objects.get(id=agency_id)
     except (Agency.DoesNotExist, ValueError):

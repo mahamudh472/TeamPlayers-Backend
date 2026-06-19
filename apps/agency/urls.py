@@ -7,7 +7,9 @@ from .views import (
     LeadWebhookIngestView,
     LeadChangeStatusView,
     ClientListView,
-    ClientDetailView
+    ClientDetailView,
+    JobListView,
+    JobDetailView
 )
 
 urlpatterns = [
@@ -20,4 +22,7 @@ urlpatterns = [
     
     path('clients/', ClientListView.as_view(), name='client_list'),
     path('clients/<int:pk>/', ClientDetailView.as_view(), name='client_detail'),
+
+    path('jobs/', JobListView.as_view(), name='job_list'),
+    path('jobs/<int:pk>/', JobDetailView.as_view(), name='job_detail'),
 ]

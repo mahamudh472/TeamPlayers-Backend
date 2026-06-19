@@ -10,7 +10,11 @@ from apps.agency.services import (
     get_agency_clients,
     get_agency_client_by_id,
     create_manual_client,
-    update_client
+    update_client,
+    get_agency_jobs,
+    get_agency_job_by_id,
+    create_agency_job,
+    update_agency_job
 )
 from apps.agency.services.leads import (
     get_agency_leads,
@@ -26,7 +30,8 @@ from apps.agency.serializers import (
     LeadDetailSerializer,
     NoteSerializer,
     ClientSerializer,
-    ClientDetailSerializer
+    ClientDetailSerializer,
+    JobSerializer
 )
 from apps.agency.paginations import StandardResultsSetPagination
 
@@ -296,6 +301,110 @@ class ClientDetailView(APIView):
         
         updated_client = update_client(agency, client, serializer.validated_data)
         return Response({"message": "Client updated successfully"}, status=status.HTTP_200_OK)
+
+
+class JobListView(APIView):
+    """
+    API endpoint to list and search jobs, or create a job.
+
+    GET:
+        Returns a paginated list of jobs for the agency.
+        Supports search via '?search=<query>' across title, description, location, and client company.
+        Includes static summary statistics: active_jobs, total_applicants, shortlisted, avg_time_to_fill.
+
+    POST:
+        Creates a new job for the agency.
+        Requires job details in payload.
+
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+
+    def get(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        search_query = request.query_params.get('search')
+        jobs = get_agency_jobs(agency, search_query)
+
+        # Static values for summary fields
+        active_jobs = 8
+        total_applicants = 42
+        shortlisted = 15
+        avg_time_to_fill = 18.5
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(jobs, request, view=self)
+        if page is not None:
+            serializer = JobSerializer(page, many=True, context={'agency': agency})
+            return Response({
+                "count": paginator.page.paginator.count,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "active_jobs": active_jobs,
+                "total_applicants": total_applicants,
+                "shortlisted": shortlisted,
+                "avg_time_to_fill": avg_time_to_fill,
+                "results": serializer.data
+            }, status=status.HTTP_200_OK)
+
+        serializer = JobSerializer(jobs, many=True, context={'agency': agency})
+        return Response({
+            "active_jobs": active_jobs,
+            "total_applicants": total_applicants,
+            "shortlisted": shortlisted,
+            "avg_time_to_fill": avg_time_to_fill,
+            "results": serializer.data
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        serializer = JobSerializer(data=request.data, context={'agency': agency})
+        serializer.is_valid(raise_exception=True)
+
+        job = create_agency_job(agency, serializer.validated_data)
+        response_serializer = JobSerializer(job)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class JobDetailView(APIView):
+    """
+    API endpoint to retrieve or update details of a specific job.
+
+    GET:
+        Returns job details by ID.
+
+    PATCH:
+        Partially updates job details.
+
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        job = get_agency_job_by_id(agency, pk)
+        serializer = JobSerializer(job, context={'agency': agency})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        job = get_agency_job_by_id(agency, pk)
+        serializer = JobSerializer(job, data=request.data, partial=True, context={'agency': agency})
+        serializer.is_valid(raise_exception=True)
+
+        updated_job = update_agency_job(agency, job, serializer.validated_data)
+        response_serializer = JobSerializer(updated_job)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
 

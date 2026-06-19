@@ -1,0 +1,54 @@
+from django.db.models import Q, QuerySet
+from apps.agency.models import Agency, Client, Job
+from rest_framework.exceptions import NotFound
+
+def get_agency_jobs(agency: Agency, search_query: str = None) -> QuerySet[Job]:
+    """
+    Returns jobs for the agency, optionally filtered by a search query.
+    """
+    queryset = Job.objects.filter(agency=agency).order_by('-created_at')
+    if search_query:
+        queryset = queryset.filter(
+            Q(title__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(location__icontains=search_query) |
+            Q(client__company__icontains=search_query)
+        )
+    return queryset
+
+def get_agency_job_by_id(agency: Agency, job_id: int) -> Job:
+    """
+    Returns a single job for the agency, or raises NotFound.
+    """
+    try:
+        return Job.objects.get(agency=agency, id=job_id)
+    except (Job.DoesNotExist, ValueError):
+        raise NotFound("Job not found")
+
+def create_agency_job(agency: Agency, job_data: dict) -> Job:
+    """
+    Creates a new job for the given agency.
+    """
+    job = Job.objects.create(
+        agency=agency,
+        client=job_data.get('client'),
+        title=job_data.get('title'),
+        description=job_data.get('description'),
+        location=job_data.get('location'),
+        salary_range=job_data.get('salary_range'),
+        experince_required=job_data.get('experince_required', 0),
+        skills=job_data.get('skills', []),
+        job_type=job_data.get('job_type', 'full-time'),
+        status=job_data.get('status', 'open'),
+        description_file=job_data.get('description_file')
+    )
+    return job
+
+def update_agency_job(agency: Agency, job: Job, job_data: dict) -> Job:
+    """
+    Updates a job manually with the given data.
+    """
+    for field, value in job_data.items():
+        setattr(job, field, value)
+    job.save()
+    return job

@@ -143,3 +143,37 @@ class ClientActivity(models.Model):
 
     def __str__(self):
         return self.summary if self.summary else f"Client Activity {self.id}"   
+
+class Job(models.Model):
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='jobs')
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='jobs')
+    
+    title = models.CharField(max_length=100)
+    description = models.TextField()
+    location = models.CharField(max_length=100, blank=True, null=True)
+    salary_range = models.CharField(max_length=50, blank=True, null=True)
+    experince_required = models.IntegerField(default=0)
+    skills = models.JSONField(default=list, blank=True, null=True)  
+    
+    job_type = models.CharField(max_length=20, choices=[
+        ('full-time', 'Full Time'), 
+        ('part-time', 'Part Time'),
+        ('hybrid', 'Hybrid'),
+        ('remote', 'Remote'),
+        ('contract', 'Contract')], default='full-time')
+    
+    status = models.CharField(max_length=20, choices=[
+        ('open', 'Open'), 
+        ('closed', 'Closed'), 
+        ('filled', 'Filled')], default='open')
+    description_file = models.FileField(upload_to='job_descriptions', blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Job"
+        verbose_name_plural = "Jobs"
+
+    def __str__(self):
+        return self.title if self.title else f"Job {self.id}"    

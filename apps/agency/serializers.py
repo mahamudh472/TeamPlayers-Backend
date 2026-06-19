@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.agency.models import AgencyMember, Leads, Note, Client, ClientAISummary
+from apps.agency.models import AgencyMember, Leads, Note, Client, ClientAISummary, Job
 from apps.accounts.models import User
 
 class UserAgencySerializer(serializers.ModelSerializer):
@@ -179,3 +179,49 @@ class ClientDetailSerializer(ClientSerializer):
             "Follow up on pending candidate interviews",
             "Send renewal proposal for the technical consulting contract"
         ]
+
+
+class JobSerializer(serializers.ModelSerializer):
+    client_name = serializers.CharField(source='client.company', read_only=True)
+    applicants = serializers.SerializerMethodField()
+    shortlisted = serializers.SerializerMethodField()
+    interviewed = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Job
+        fields = [
+            'id',
+            'client',
+            'client_name',
+            'title',
+            'description',
+            'location',
+            'salary_range',
+            'experince_required',
+            'skills',
+            'job_type',
+            'status',
+            'description_file',
+            'applicants',
+            'shortlisted',
+            'interviewed',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'client_name', 'created_at', 'updated_at']
+
+    def get_applicants(self, obj):
+        return 12
+
+    def get_shortlisted(self, obj):
+        return 4
+
+    def get_interviewed(self, obj):
+        return 2
+
+    def validate(self, attrs):
+        agency = self.context.get('agency')
+        client = attrs.get('client')
+        if agency and client and client.agency != agency:
+            raise serializers.ValidationError({"client": "Client does not belong to this agency."})
+        return attrs
