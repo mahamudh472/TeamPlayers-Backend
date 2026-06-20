@@ -25,6 +25,7 @@ urlpatterns = [
     path('api/v1/finance/', include('apps.finance.urls')),
     path('api/v1/main/', include('apps.main.urls')),
     path('api/v1/agency/', include('apps.agency.urls')),
+    path('api/v1/integrations/', include('apps.integrations.urls')),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

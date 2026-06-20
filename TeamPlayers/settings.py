@@ -104,6 +104,7 @@ INSTALLED_APPS = [
     'apps.accounts',
     'apps.agency',
     'apps.finance',
+    'apps.integrations',
     'djstripe',
 
     'rest_framework',
@@ -259,6 +260,14 @@ DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"
 FRONTEND_URL = os.getenv("FRONTEND_URL")
 
 LEADS_WEBHOOK_SECRET = os.getenv('LEADS_WEBHOOK_SECRET', 'default_leads_webhook_secret_key')
+
+# Zoom OAuth settings
+ZOOM_CLIENT_ID = os.getenv('ZOOM_CLIENT_ID')
+ZOOM_CLIENT_SECRET = os.getenv('ZOOM_CLIENT_SECRET')
+ZOOM_REDIRECT_URI = os.getenv(
+    'ZOOM_REDIRECT_URI',
+    'http://localhost:8000/api/v1/integrations/zoom/callback/'
+)
 
 
 # Logger config
