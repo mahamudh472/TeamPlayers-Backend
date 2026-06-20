@@ -37,8 +37,15 @@ This index lists available API endpoints and links to the per-app reference page
 - [POST /api/v1/agency/jobs/](endpoints/agency.md) — Create a new job (authenticated)
 - [GET  /api/v1/agency/jobs/<id>/](endpoints/agency.md) — Retrieve details of a single job (authenticated)
 - [PATCH /api/v1/agency/jobs/<id>/](endpoints/agency.md) — Update details of a single job (authenticated)
+- [GET  /api/v1/agency/jobs/<id>/candidates/](endpoints/agency.md) — List candidates for a specific job (authenticated)
+
+- [GET  /api/v1/agency/candidates/](endpoints/agency.md) — List candidates with search, pagination, and status counts (authenticated)
+- [GET  /api/v1/agency/candidates/<id>/](endpoints/agency.md) — Retrieve details of a single candidate (authenticated)
+- [GET  /api/v1/agency/candidates/<id>/notes/](endpoints/agency.md) — Retrieve notes for a single candidate (authenticated)
+- [POST /api/v1/agency/candidates/<id>/notes/](endpoints/agency.md) — Create a note for a single candidate (authenticated)
 
 ---
 
 Add other apps here as their endpoint pages are created under `docs/endpoints/`.
+
 

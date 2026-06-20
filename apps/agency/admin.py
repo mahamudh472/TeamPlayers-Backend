@@ -1,6 +1,9 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
-from .models import Agency, AgencyMember, Client, ClientActivity, ClientAISummary
+from .models import (
+    Agency, AgencyMember, Client, ClientActivity, ClientAISummary,
+    Candidate, CandidateActivity, CandidateAIAnalysis
+)
 
 @admin.register(Agency)
 class AgencyAdmin(ModelAdmin):
@@ -32,3 +35,20 @@ class ClientAISummaryAdmin(ModelAdmin):
     search_fields = ('client__company', 'summary')
     ordering = ('-created_at',)
 
+@admin.register(Candidate)
+class CandidateAdmin(ModelAdmin):
+    list_display = ('id', 'name', 'email', 'phone', 'location', 'experience', 'current_salary', 'expected_salary', 'applied_at', 'status')
+    search_fields = ('name', 'email', 'location', 'job_name')
+    ordering = ('-applied_at',)
+
+@admin.register(CandidateActivity)
+class CandidateActivityAdmin(ModelAdmin):
+    list_display = ('id', 'candidate', 'created_at', 'updated_at')
+    search_fields = ('candidate__name', 'activity')
+    ordering = ('-created_at',)
+
+@admin.register(CandidateAIAnalysis)
+class CandidateAIAnalysisAdmin(ModelAdmin):
+    list_display = ('id', 'candidate', 'summary', 'created_at', 'updated_at')
+    search_fields = ('candidate__name', 'summary')
+    ordering = ('-created_at',)

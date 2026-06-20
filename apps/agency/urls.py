@@ -12,7 +12,11 @@ from .views import (
     JobDetailView,
     ClientJobsListView,
     ClientActivityListView,
-    ClientNotesView
+    ClientNotesView,
+    CandidateListView,
+    CandidateDetailView,
+    CandidateNotesView,
+    JobCandidatesListView
 )
 
 urlpatterns = [
@@ -31,4 +35,11 @@ urlpatterns = [
 
     path('jobs/', JobListView.as_view(), name='job_list'),
     path('jobs/<int:pk>/', JobDetailView.as_view(), name='job_detail'),
+    path('jobs/<int:pk>/candidates/', JobCandidatesListView.as_view(), name='job_candidates_list'),
+
+    path('candidates/', CandidateListView.as_view(), name='candidate_list'),
+    path('candidates/<int:pk>/', CandidateDetailView.as_view(), name='candidate_detail'),
+    path('candidates/<int:pk>/notes/', CandidateNotesView.as_view(), name='candidate_notes'),
 ]
+
+

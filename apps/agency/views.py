@@ -14,7 +14,13 @@ from apps.agency.services import (
     get_agency_jobs,
     get_agency_job_by_id,
     create_agency_job,
-    update_agency_job
+    update_agency_job,
+    get_agency_candidates,
+    get_agency_candidate_by_id,
+    get_agency_candidate_counts,
+    get_candidate_notes,
+    add_note_to_candidate,
+    get_job_candidates
 )
 from apps.agency.services.leads import (
     get_agency_leads,
@@ -32,7 +38,10 @@ from apps.agency.serializers import (
     ClientSerializer,
     ClientDetailSerializer,
     JobSerializer,
-    ClientActivitySerializer
+    ClientActivitySerializer,
+    CandidateMinSerializer,
+    CandidateDetailSerializer,
+    JobCandidateSerializer
 )
 from apps.agency.services.jobs import get_client_jobs
 from apps.agency.services.clients import (
@@ -481,6 +490,120 @@ class ClientNotesView(APIView):
         note = add_note_to_client(agency, request.user, pk, content)
         serializer = NoteSerializer(note)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class CandidateListView(APIView):
+    """
+    API endpoint to list and search candidates.
+    GET:
+        Returns a paginated list of candidates for the agency.
+        Supports search via '?search=<query>'.
+        Includes status counts: total_candidates, shortlisted, interviewing, rejected.
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+
+    def get(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        search_query = request.query_params.get('search')
+        candidates = get_agency_candidates(agency, search_query)
+        counts = get_agency_candidate_counts(agency)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(candidates, request, view=self)
+        if page is not None:
+            serializer = CandidateMinSerializer(page, many=True)
+            response_data = {
+                "count": paginator.page.paginator.count,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "results": serializer.data
+            }
+            response_data.update(counts)
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        serializer = CandidateMinSerializer(candidates, many=True)
+        response_data = {
+            "results": serializer.data
+        }
+        response_data.update(counts)
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+class CandidateDetailView(APIView):
+    """
+    API endpoint to retrieve details of a specific candidate.
+    GET:
+        Returns candidate details including AI analysis, job info, and recommended actions.
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        candidate = get_agency_candidate_by_id(agency, pk)
+        serializer = CandidateDetailSerializer(candidate, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CandidateNotesView(APIView):
+    """
+    API endpoint to list and add notes for a specific candidate.
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        notes = get_candidate_notes(agency, pk)
+        serializer = NoteSerializer(notes, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        content = request.data.get('content')
+        if not content or not content.strip():
+            return Response(
+                {"error": "content is required and cannot be empty"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        note = add_note_to_candidate(agency, request.user, pk, content)
+        serializer = NoteSerializer(note)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class JobCandidatesListView(APIView):
+    """
+    API endpoint to list candidates of a specific job.
+    GET:
+        Returns a list of candidates applying for the job.
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        candidates = get_job_candidates(agency, pk)
+        serializer = JobCandidateSerializer(candidates, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 
 
 

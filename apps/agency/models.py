@@ -71,7 +71,8 @@ class Note(models.Model):
     model = models.CharField(max_length=20, choices=[
         ('lead', 'Lead'), 
         ('client', 'Client'), 
-        ('meeting', 'Meeting')
+        ('meeting', 'Meeting'),
+        ('candidate', 'Candidate')
         ],
     )
     model_id = models.PositiveIntegerField(null=True, blank=True)
@@ -177,3 +178,76 @@ class Job(models.Model):
 
     def __str__(self):
         return self.title if self.title else f"Job {self.id}"    
+
+class Candidate(models.Model):
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='candidates')
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='candidates')
+
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+    phone = models.CharField(max_length=15, blank=True, null=True)
+    location = models.CharField(max_length=100, blank=True, null=True)
+    experience = models.IntegerField(default=0)
+    skills = models.JSONField(default=list, blank=True, null=True)
+    current_salary = models.CharField(max_length=50, blank=True, null=True)
+    expected_salary = models.CharField(max_length=50, blank=True, null=True)
+    resume = models.FileField(upload_to='candidates/resumes', blank=True, null=True)
+    
+    status = models.CharField(max_length=20, choices=[
+        ('new', 'New'),
+        ('shortlisted', 'Shortlisted'),
+        ('interviewing', 'Interviewing'),
+        ('offered', 'Offered'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected')], default='new')
+    
+    applied_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Candidate"
+        verbose_name_plural = "Candidates"
+
+    def __str__(self):
+        return self.name if self.name else f"Candidate {self.id}"
+
+class CandidateAIAnalysis(models.Model):
+    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='ai_analysis')
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='candidate_ai_analysis')
+    
+    summary = models.TextField(blank=True, null=True)
+
+    key_strength = models.JSONField(default=list, blank=True, null=True)
+    potential_concerns = models.JSONField(default=list, blank=True, null=True)
+
+    # AI match breackdown
+    skills_match = models.FloatField(default=0) 
+    experience_match = models.FloatField(default=0)
+    salary_match = models.FloatField(default=0)
+    location_match = models.FloatField(default=0)
+    overall_match_percentage = models.FloatField(default=0) 
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Candidate AI Analysis"
+        verbose_name_plural = "Candidate AI Analysis"
+
+    def __str__(self):
+        return f"Candidate AI Analysis {self.id} for {self.candidate.name}"
+
+
+class CandidateActivity(models.Model):
+    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='activities')
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='candidate_activities')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='candidate_activities')
+    summary = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Candidate Activity"
+        verbose_name_plural = "Candidate Activities"
+
+    def __str__(self):
+        return self.summary if self.summary else f"Candidate Activity {self.id}"

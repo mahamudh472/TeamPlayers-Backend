@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.agency.models import AgencyMember, Leads, Note, Client, ClientAISummary, Job, ClientActivity
+from apps.agency.models import AgencyMember, Leads, Note, Client, ClientAISummary, Job, ClientActivity, Candidate, CandidateAIAnalysis
 from apps.accounts.models import User
 
 class UserAgencySerializer(serializers.ModelSerializer):
@@ -240,3 +240,123 @@ class JobSerializer(serializers.ModelSerializer):
         if agency and client and client.agency != agency:
             raise serializers.ValidationError({"client": "Client does not belong to this agency."})
         return attrs
+
+
+class CandidateMinSerializer(serializers.ModelSerializer):
+    job_name = serializers.CharField(source='job.title', read_only=True)
+    applied = serializers.DateTimeField(source='applied_at', read_only=True)
+    overall_match_percentage = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Candidate
+        fields = [
+            'id',
+            'name',
+            'job_name',
+            'location',
+            'experience',
+            'current_salary',
+            'expected_salary',
+            'applied',
+            'overall_match_percentage'
+        ]
+        read_only_fields = fields
+
+    def get_overall_match_percentage(self, obj):
+        analysis = obj.ai_analysis.first()
+        if analysis:
+            return analysis.overall_match_percentage
+        return 0.0
+
+
+class CandidateAIAnalysisSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CandidateAIAnalysis
+        fields = [
+            'summary',
+            'key_strength',
+            'potential_concerns',
+            'skills_match',
+            'experience_match',
+            'salary_match',
+            'location_match',
+            'overall_match_percentage'
+        ]
+        read_only_fields = fields
+
+
+class CandidateDetailSerializer(serializers.ModelSerializer):
+    ai_analysis = serializers.SerializerMethodField()
+    job_info = serializers.SerializerMethodField()
+    recommended_actions = serializers.SerializerMethodField()
+    applied = serializers.DateTimeField(source='applied_at', read_only=True)
+
+    class Meta:
+        model = Candidate
+        fields = [
+            'id',
+            'name',
+            'email',
+            'phone',
+            'location',
+            'experience',
+            'skills',
+            'current_salary',
+            'expected_salary',
+            'resume',
+            'status',
+            'applied',
+            'applied_at',
+            'ai_analysis',
+            'job_info',
+            'recommended_actions'
+        ]
+        read_only_fields = fields
+
+    def get_ai_analysis(self, obj):
+        analysis = obj.ai_analysis.first()
+        if analysis:
+            return CandidateAIAnalysisSerializer(analysis).data
+        return None
+
+    def get_job_info(self, obj):
+        if obj.job:
+            return {
+                "id": obj.job.id,
+                "name": obj.job.title,
+                "location": obj.job.location,
+                "salary_range": obj.job.salary_range
+            }
+        return None
+
+    def get_recommended_actions(self, obj):
+        return [
+            "Schedule next round interview",
+            "Request reference checks from candidate",
+            "Send technical assessment test",
+            "Review portfolio and key projects"
+        ]
+
+
+class JobCandidateSerializer(serializers.ModelSerializer):
+    ai_average_score = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Candidate
+        fields = [
+            'id',
+            'name',
+            'ai_average_score',
+            'status',
+            'location',
+            'experience'
+        ]
+        read_only_fields = fields
+
+    def get_ai_average_score(self, obj):
+        analysis = obj.ai_analysis.first()
+        if analysis:
+            return analysis.overall_match_percentage
+        return 0.0
+
+
