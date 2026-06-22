@@ -16,7 +16,12 @@ from .views import (
     CandidateListView,
     CandidateDetailView,
     CandidateNotesView,
-    JobCandidatesListView
+    JobCandidatesListView,
+    CandidateShortlistView,
+    CandidateInterviewMeetingView,
+    CandidateOfferSendView,
+    CandidateAcceptView,
+    CandidateRejectView
 )
 
 urlpatterns = [
@@ -40,6 +45,12 @@ urlpatterns = [
     path('candidates/', CandidateListView.as_view(), name='candidate_list'),
     path('candidates/<int:pk>/', CandidateDetailView.as_view(), name='candidate_detail'),
     path('candidates/<int:pk>/notes/', CandidateNotesView.as_view(), name='candidate_notes'),
+    path('candidates/<int:pk>/shortlist/', CandidateShortlistView.as_view(), name='candidate_shortlist'),
+    path('candidates/<int:pk>/meeting/', CandidateInterviewMeetingView.as_view(), name='candidate_meeting'),
+    path('candidates/<int:pk>/offer/', CandidateOfferSendView.as_view(), name='candidate_offer_send'),
+    path('candidates/<int:pk>/accept/', CandidateAcceptView.as_view(), name='candidate_accept'),
+    path('candidates/<int:pk>/reject/', CandidateRejectView.as_view(), name='candidate_reject'),
 ]
+
 
 

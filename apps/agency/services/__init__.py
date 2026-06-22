@@ -7,5 +7,10 @@ from .candidates import (
     get_agency_candidate_counts,
     get_candidate_notes,
     add_note_to_candidate,
-    get_job_candidates
+    get_job_candidates,
+    shortlist_candidate,
+    schedule_candidate_interview,
+    make_candidate_offer,
+    accept_candidate,
+    reject_candidate
 )

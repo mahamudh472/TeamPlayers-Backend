@@ -20,7 +20,12 @@ from apps.agency.services import (
     get_agency_candidate_counts,
     get_candidate_notes,
     add_note_to_candidate,
-    get_job_candidates
+    get_job_candidates,
+    shortlist_candidate,
+    schedule_candidate_interview,
+    make_candidate_offer,
+    accept_candidate,
+    reject_candidate
 )
 from apps.agency.services.leads import (
     get_agency_leads,
@@ -41,7 +46,11 @@ from apps.agency.serializers import (
     ClientActivitySerializer,
     CandidateMinSerializer,
     CandidateDetailSerializer,
-    JobCandidateSerializer
+    JobCandidateSerializer,
+    CandidateMeetingCreateSerializer,
+    CandidateOfferSerializer,
+    PlacementSerializer,
+    CandidateMeetingSerializer
 )
 from apps.agency.services.jobs import get_client_jobs
 from apps.agency.services.clients import (
@@ -601,6 +610,131 @@ class JobCandidatesListView(APIView):
 
         candidates = get_job_candidates(agency, pk)
         serializer = JobCandidateSerializer(candidates, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CandidateShortlistView(APIView):
+    """
+    API endpoint to shortlist a candidate (new -> shortlisted).
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        candidate = shortlist_candidate(agency, pk)
+        serializer = CandidateDetailSerializer(candidate, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CandidateInterviewMeetingView(APIView):
+    """
+    API endpoint to schedule an interview meeting for a shortlisted candidate.
+    Creates a Zoom meeting, sends invitation email, and sets status to interviewing.
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        serializer = CandidateMeetingCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        candidate, meeting, zoom_error_details = schedule_candidate_interview(
+            agency=agency,
+            recruiter=request.user,
+            candidate_id=pk,
+            meeting_time=serializer.validated_data['meeting_time'],
+            duration=serializer.validated_data['duration'],
+            agenda=serializer.validated_data.get('agenda')
+        )
+
+        candidate_data = CandidateDetailSerializer(candidate, context={'request': request}).data
+        meeting_data = CandidateMeetingSerializer(meeting).data
+
+        response_data = {
+            "message": "Interview meeting scheduled and invitation email sent successfully.",
+            "candidate": candidate_data,
+            "meeting": meeting_data
+        }
+
+        if zoom_error_details:
+            response_data["zoom_warning"] = f"Zoom meeting creation failed: {zoom_error_details}. A mock Zoom link was generated instead."
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
+
+
+class CandidateOfferSendView(APIView):
+    """
+    API endpoint to send a job offer to a shortlisted/interviewing candidate.
+    Transitions status to offered and creates a Placement object.
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        serializer = CandidateOfferSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        candidate, placement = make_candidate_offer(
+            agency=agency,
+            recruiter=request.user,
+            candidate_id=pk,
+            salary=serializer.validated_data['salary'],
+            notice_period=serializer.validated_data['notice_period']
+        )
+
+        candidate_data = CandidateDetailSerializer(candidate, context={'request': request}).data
+        placement_data = PlacementSerializer(placement).data
+
+        return Response({
+            "message": "Offer sent and placement created successfully.",
+            "candidate": candidate_data,
+            "placement": placement_data
+        }, status=status.HTTP_201_CREATED)
+
+
+class CandidateAcceptView(APIView):
+    """
+    API endpoint to set candidate status to accepted from any status.
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        candidate = accept_candidate(agency, pk)
+        serializer = CandidateDetailSerializer(candidate, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CandidateRejectView(APIView):
+    """
+    API endpoint to set candidate status to rejected from any status.
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        candidate = reject_candidate(agency, pk)
+        serializer = CandidateDetailSerializer(candidate, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

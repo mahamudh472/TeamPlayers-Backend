@@ -251,3 +251,51 @@ class CandidateActivity(models.Model):
 
     def __str__(self):
         return self.summary if self.summary else f"Candidate Activity {self.id}"
+
+class CandidateMeeting(models.Model):
+    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='meetings')
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='candidate_meetings')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='candidate_meetings')
+    
+    meeting_time = models.DateTimeField(blank=True, null=True)
+    agenda = models.TextField(blank=True, null=True)
+    
+    summary = models.TextField(blank=True, null=True)
+    meeting_link = models.URLField(blank=True, null=True)
+    
+    status = models.CharField(max_length=20, choices=[
+        ('pending', 'Pending'), 
+        ('scheduled', 'Scheduled'), 
+        ('completed', 'Completed'), 
+        ('cancelled', 'Cancelled')], default='pending')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Candidate Meeting"
+        verbose_name_plural = "Candidate Meetings"
+
+    def __str__(self):
+        return self.summary if self.summary else f"Candidate Meeting {self.id}"
+
+class Placement(models.Model):
+    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='placements')
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='placements')
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='placements')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='placements')
+    salary = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    notice_period = models.IntegerField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=[
+        ('placed', 'Placed'),
+        ('not_placed', 'Not Placed')], default='placed')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Placement"
+        verbose_name_plural = "Placements"
+
+    def __str__(self):
+        return f"Placement {self.id} for {self.candidate.name}"
+    

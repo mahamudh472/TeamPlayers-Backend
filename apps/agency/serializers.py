@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.agency.models import AgencyMember, Leads, Note, Client, ClientAISummary, Job, ClientActivity, Candidate, CandidateAIAnalysis
+from apps.agency.models import AgencyMember, Leads, Note, Client, ClientAISummary, Job, ClientActivity, Candidate, CandidateAIAnalysis, Placement, CandidateMeeting
 from apps.accounts.models import User
 
 class UserAgencySerializer(serializers.ModelSerializer):
@@ -358,5 +358,30 @@ class JobCandidateSerializer(serializers.ModelSerializer):
         if analysis:
             return analysis.overall_match_percentage
         return 0.0
+
+
+class CandidateMeetingCreateSerializer(serializers.Serializer):
+    meeting_time = serializers.DateTimeField()
+    duration = serializers.IntegerField(default=30, min_value=1, max_value=1440)
+    agenda = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+
+class CandidateOfferSerializer(serializers.Serializer):
+    salary = serializers.DecimalField(max_digits=10, decimal_places=2)
+    notice_period = serializers.IntegerField(min_value=0)
+
+
+class PlacementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Placement
+        fields = ['id', 'candidate', 'job', 'agency', 'user', 'salary', 'notice_period', 'status', 'created_at', 'updated_at']
+        read_only_fields = fields
+
+
+class CandidateMeetingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CandidateMeeting
+        fields = ['id', 'candidate', 'agency', 'user', 'meeting_time', 'agenda', 'summary', 'meeting_link', 'status', 'created_at', 'updated_at']
+        read_only_fields = fields
 
 
