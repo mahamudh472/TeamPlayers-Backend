@@ -25,7 +25,10 @@ from apps.agency.services import (
     schedule_candidate_interview,
     make_candidate_offer,
     accept_candidate,
-    reject_candidate
+    reject_candidate,
+    get_public_active_jobs,
+    get_public_active_job_by_id,
+    save_cv_file
 )
 from apps.agency.services.leads import (
     get_agency_leads,
@@ -50,7 +53,10 @@ from apps.agency.serializers import (
     CandidateMeetingCreateSerializer,
     CandidateOfferSerializer,
     PlacementSerializer,
-    CandidateMeetingSerializer
+    CandidateMeetingSerializer,
+    PublicJobSerializer,
+    PublicJobDetailSerializer,
+    CVUploadSerializer
 )
 from apps.agency.services.jobs import get_client_jobs
 from apps.agency.services.clients import (
@@ -737,6 +743,64 @@ class CandidateRejectView(APIView):
         serializer = CandidateDetailSerializer(candidate, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+class PublicJobListView(APIView):
+    """
+    API endpoint to list and search active (open) jobs publicly across all agencies.
+    """
+    permission_classes = [AllowAny]
+    pagination_class = StandardResultsSetPagination
+
+    def get(self, request):
+        search_query = request.query_params.get('search')
+        jobs = get_public_active_jobs(search_query)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(jobs, request, view=self)
+        if page is not None:
+            serializer = PublicJobSerializer(page, many=True, context={'request': request})
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = PublicJobSerializer(jobs, many=True, context={'request': request})
+        return Response({
+            "results": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class PublicJobDetailView(APIView):
+    """
+    API endpoint to retrieve public details of a specific job.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        job = get_public_active_job_by_id(pk)
+        serializer = PublicJobDetailSerializer(job, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PublicCVUploadView(APIView):
+    """
+    API endpoint for public users to upload a CV/resume.
+    Returns saved file path and URL.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = CVUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        cv_file = serializer.validated_data['file']
+        file_path = save_cv_file(cv_file)
+
+        # Build absolute URL using request
+        file_url = request.build_absolute_uri(settings.MEDIA_URL + file_path)
+
+        return Response({
+            "message": "CV uploaded successfully",
+            "file_path": file_path,
+            "file_url": file_url
+        }, status=status.HTTP_201_CREATED)
 
 
 

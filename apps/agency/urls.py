@@ -21,7 +21,10 @@ from .views import (
     CandidateInterviewMeetingView,
     CandidateOfferSendView,
     CandidateAcceptView,
-    CandidateRejectView
+    CandidateRejectView,
+    PublicJobListView,
+    PublicJobDetailView,
+    PublicCVUploadView
 )
 
 urlpatterns = [
@@ -40,6 +43,8 @@ urlpatterns = [
 
     path('jobs/', JobListView.as_view(), name='job_list'),
     path('jobs/<int:pk>/', JobDetailView.as_view(), name='job_detail'),
+    path('jobs/public/', PublicJobListView.as_view(), name='public_job_list'),
+    path('jobs/public/<int:pk>/', PublicJobDetailView.as_view(), name='public_job_detail'),
     path('jobs/<int:pk>/candidates/', JobCandidatesListView.as_view(), name='job_candidates_list'),
 
     path('candidates/', CandidateListView.as_view(), name='candidate_list'),
@@ -50,6 +55,7 @@ urlpatterns = [
     path('candidates/<int:pk>/offer/', CandidateOfferSendView.as_view(), name='candidate_offer_send'),
     path('candidates/<int:pk>/accept/', CandidateAcceptView.as_view(), name='candidate_accept'),
     path('candidates/<int:pk>/reject/', CandidateRejectView.as_view(), name='candidate_reject'),
+    path('candidates/public/upload-cv/', PublicCVUploadView.as_view(), name='public_cv_upload'),
 ]
 
 

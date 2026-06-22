@@ -274,3 +274,14 @@ def reject_candidate(agency: Agency, candidate_id: int) -> Candidate:
     return candidate
 
 
+def save_cv_file(file) -> str:
+    """
+    Saves an uploaded CV file using Django's default storage system.
+    Returns the relative file path.
+    """
+    from django.core.files.storage import default_storage
+    file_path = default_storage.save(f'candidates/resumes/{file.name}', file)
+    return file_path
+
+
+

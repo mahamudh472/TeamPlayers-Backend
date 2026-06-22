@@ -385,3 +385,46 @@ class CandidateMeetingSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class PublicJobSerializer(serializers.ModelSerializer):
+    agency_name = serializers.CharField(source='agency.name', read_only=True)
+    agency_logo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Job
+        fields = [
+            'id',
+            'agency_name',
+            'agency_logo',
+            'title',
+            'location',
+            'salary_range',
+            'experince_required',
+            'skills',
+            'job_type',
+            'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_agency_logo(self, obj):
+        if obj.agency.logo:
+            request = self.context.get('request')
+            if request is not None:
+                return request.build_absolute_uri(obj.agency.logo.url)
+            return obj.agency.logo.url
+        return None
+
+
+class PublicJobDetailSerializer(PublicJobSerializer):
+    class Meta(PublicJobSerializer.Meta):
+        fields = PublicJobSerializer.Meta.fields + [
+            'description',
+            'description_file',
+        ]
+        read_only_fields = fields
+
+
+class CVUploadSerializer(serializers.Serializer):
+    file = serializers.FileField()
+
+
+

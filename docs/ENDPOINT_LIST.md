@@ -38,6 +38,8 @@ This index lists available API endpoints and links to the per-app reference page
 - [GET  /api/v1/agency/jobs/<id>/](endpoints/agency/jobs.md) — Retrieve details of a single job (authenticated)
 - [PATCH /api/v1/agency/jobs/<id>/](endpoints/agency/jobs.md) — Update details of a single job (authenticated)
 - [GET  /api/v1/agency/jobs/<id>/candidates/](endpoints/agency/jobs.md) — List candidates for a specific job (authenticated)
+- [GET  /api/v1/agency/jobs/public/](endpoints/agency/jobs.md) — Public list of active (open) jobs with pagination and search (public)
+- [GET  /api/v1/agency/jobs/public/<id>/](endpoints/agency/jobs.md) — Public details of a single active (open) job (public)
 
 - [GET  /api/v1/agency/candidates/](endpoints/agency/candidates.md) — List candidates with search, pagination, and status counts (authenticated)
 - [GET  /api/v1/agency/candidates/<id>/](endpoints/agency/candidates.md) — Retrieve details of a single candidate (authenticated)
@@ -48,6 +50,8 @@ This index lists available API endpoints and links to the per-app reference page
 - [POST /api/v1/agency/candidates/<id>/offer/](endpoints/agency/candidates.md) — Send offer and create placement (authenticated)
 - [POST /api/v1/agency/candidates/<id>/accept/](endpoints/agency/candidates.md) — Set candidate status to accepted (authenticated)
 - [POST /api/v1/agency/candidates/<id>/reject/](endpoints/agency/candidates.md) — Set candidate status to rejected (authenticated)
+- [POST /api/v1/agency/candidates/public/upload-cv/](endpoints/agency/candidates.md) — Public endpoint to upload a CV/resume (public)
+
 
 ---
 

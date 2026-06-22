@@ -9,6 +9,8 @@ Back to index: [ENDPOINT_LIST.md](../../ENDPOINT_LIST.md)
 - GET `/api/v1/agency/jobs/<id>/` — Retrieve details of a single job.
 - PATCH `/api/v1/agency/jobs/<id>/` — Update details of a single job.
 - GET `/api/v1/agency/jobs/<id>/candidates/` — List candidates for a specific job.
+- GET `/api/v1/agency/jobs/public/` — Public list of active (open) jobs with pagination and search.
+- GET `/api/v1/agency/jobs/public/<id>/` — Public details of a single active (open) job.
 
 ---
 
@@ -258,3 +260,74 @@ Error responses:
 ```json
 { "detail": "Job not found" }
 ```
+
+---
+
+## GET /api/v1/agency/jobs/public/
+
+Description: Retrieve all active (open) jobs across all agencies for public display. Results are paginated and can be filtered using the `search` query parameter matching against title, description, or location. Client identities are hidden for confidentiality.
+
+Auth: None (Public)
+
+Query Parameters:
+- `search` (Optional) — Filter jobs by a search term.
+- `page` (Optional) — Page number.
+- `page_size` (Optional) — Page size limit.
+
+Success response (200):
+
+```json
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 1,
+      "agency_name": "Tech Recruitment Ltd",
+      "agency_logo": "http://localhost:8000/media/agencies/logos/tech_rec.png",
+      "title": "Senior Python Developer",
+      "location": "Boston, MA",
+      "salary_range": "$110k - $130k",
+      "experince_required": 5,
+      "skills": ["Python", "Django", "PostgreSQL"],
+      "job_type": "remote",
+      "created_at": "2026-06-18T12:00:00.123456Z"
+    }
+  ]
+}
+```
+
+---
+
+## GET /api/v1/agency/jobs/public/<id>/
+
+Description: Retrieve public details of a single active (open) job by its ID. Client identities are hidden.
+
+Auth: None (Public)
+
+Success response (200):
+
+```json
+{
+  "id": 1,
+  "agency_name": "Tech Recruitment Ltd",
+  "agency_logo": "http://localhost:8000/media/agencies/logos/tech_rec.png",
+  "title": "Senior Python Developer",
+  "location": "Boston, MA",
+  "salary_range": "$110k - $130k",
+  "experince_required": 5,
+  "skills": ["Python", "Django", "PostgreSQL"],
+  "job_type": "remote",
+  "created_at": "2026-06-18T12:00:00.123456Z",
+  "description": "Develop and maintain robust web services and integrations.",
+  "description_file": null
+}
+```
+
+Error responses:
+- 404: Job not found
+```json
+{ "detail": "Job not found" }
+```
+

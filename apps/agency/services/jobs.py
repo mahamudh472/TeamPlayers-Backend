@@ -63,3 +63,30 @@ def get_client_jobs(agency: Agency, client_id: int, status_filter: str = None) -
     if status_filter:
         queryset = queryset.filter(status=status_filter)
     return queryset
+
+
+def get_public_active_jobs(search_query: str = None) -> QuerySet[Job]:
+    """
+    Returns only active (open) jobs across all agencies, optionally filtered by a search query.
+    Only returns jobs meant for public consumption.
+    """
+    queryset = Job.objects.filter(status='open').order_by('-created_at')
+    if search_query:
+        queryset = queryset.filter(
+            Q(title__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(location__icontains=search_query)
+        )
+    return queryset
+
+
+def get_public_active_job_by_id(job_id: int) -> Job:
+    """
+    Returns an active (open) job, or raises NotFound.
+    """
+    try:
+        return Job.objects.get(id=job_id, status='open')
+    except (Job.DoesNotExist, ValueError):
+        raise NotFound("Job not found")
+
+

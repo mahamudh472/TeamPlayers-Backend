@@ -13,6 +13,7 @@ Back to index: [ENDPOINT_LIST.md](../../ENDPOINT_LIST.md)
 - POST `/api/v1/agency/candidates/<id>/offer/` — Send offer and create placement.
 - POST `/api/v1/agency/candidates/<id>/accept/` — Set candidate status to accepted.
 - POST `/api/v1/agency/candidates/<id>/reject/` — Set candidate status to rejected.
+- POST `/api/v1/agency/candidates/public/upload-cv/` — Public endpoint to upload a CV/resume.
 
 ---
 
@@ -500,3 +501,35 @@ Error responses:
 ```json
 { "detail": "Candidate not found" }
 ```
+
+---
+
+## POST /api/v1/agency/candidates/public/upload-cv/
+
+Description: Public endpoint for uploading a candidate CV/resume file. Currently, the file is saved to storage, and the path/URL is returned.
+
+Auth: None (Public)
+
+Request Payload (multipart/form-data):
+- `file`: The CV/resume file (PDF, DOCX, DOC etc.)
+
+Success response (201):
+
+```json
+{
+  "message": "CV uploaded successfully",
+  "file_path": "candidates/resumes/my_resume_xyz.pdf",
+  "file_url": "http://localhost:8000/media/candidates/resumes/my_resume_xyz.pdf"
+}
+```
+
+Error responses:
+- 400: Validation error (e.g. no file provided)
+```json
+{
+  "file": [
+    "No file was submitted."
+  ]
+}
+```
+
