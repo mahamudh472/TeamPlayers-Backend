@@ -5,3 +5,5 @@ from .stripe_services import (
     create_checkout_session,
     create_billing_portal_session
 )
+from .revenue import add_client_revenue
+

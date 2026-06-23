@@ -122,8 +122,9 @@ class ClientSerializer(serializers.ModelSerializer):
         return 0
 
     def get_revenue(self, obj):
-        # TODO: Make this dynamic once we have data tracking
-        return 15000.00
+        from django.db.models import Sum
+        result = obj.revenues.aggregate(total=Sum('amount'))['total']
+        return float(result) if result is not None else 0.0
 
     def validate(self, attrs):
         if self.instance and 'note' in attrs:
@@ -378,6 +379,47 @@ class PlacementSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class PlacementListSerializer(serializers.ModelSerializer):
+    candidate_id = serializers.IntegerField(source='candidate.id', read_only=True)
+    candidate_name = serializers.CharField(source='candidate.name', read_only=True)
+    candidate_email = serializers.CharField(source='candidate.email', read_only=True)
+    position = serializers.CharField(source='job.title', read_only=True)
+    client = serializers.CharField(source='job.client.company', read_only=True)
+    placed_date = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Placement
+        fields = [
+            'id',
+            'candidate_id',
+            'candidate_name',
+            'candidate_email',
+            'position',
+            'client',
+            'salary',
+            'placed_date',
+            'status'
+        ]
+        read_only_fields = fields
+
+    def get_placed_date(self, obj):
+        if obj.created_at:
+            return obj.created_at.strftime('%d/%m/%Y')
+        return None
+
+    def get_status(self, obj):
+        candidate_status = obj.candidate.status
+        if candidate_status == 'offered':
+            return 'offered'
+        elif candidate_status == 'accepted':
+            return 'placed'
+        elif candidate_status == 'rejected':
+            return 'not_placed'
+        return candidate_status
+
+
+
 class CandidateMeetingSerializer(serializers.ModelSerializer):
     class Meta:
         model = CandidateMeeting
@@ -425,6 +467,47 @@ class PublicJobDetailSerializer(PublicJobSerializer):
 
 class CVUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
+
+
+class InterviewListSerializer(serializers.ModelSerializer):
+    candidate_name = serializers.CharField(source='candidate.name', read_only=True)
+    candidate_status = serializers.CharField(source='candidate.status', read_only=True)
+    job_title = serializers.CharField(source='candidate.job.title', read_only=True)
+    job_id = serializers.IntegerField(source='candidate.job.id', read_only=True)
+    client_name = serializers.CharField(source='candidate.job.client.company', read_only=True)
+
+    class Meta:
+        model = CandidateMeeting
+        fields = [
+            'id',
+            'candidate',
+            'candidate_name',
+            'candidate_status',
+            'job_title',
+            'job_id',
+            'client_name',
+            'meeting_time',
+            'meeting_link',
+            'status'
+        ]
+        read_only_fields = fields
+
+
+class CalendarMeetingSerializer(serializers.ModelSerializer):
+    candidate_name = serializers.CharField(source='candidate.name', read_only=True)
+    position = serializers.CharField(source='candidate.job.title', read_only=True)
+
+    class Meta:
+        model = CandidateMeeting
+        fields = [
+            'id',
+            'meeting_time',
+            'candidate_name',
+            'position'
+        ]
+        read_only_fields = fields
+
+
 
 
 

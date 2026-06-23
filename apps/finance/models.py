@@ -1,3 +1,5 @@
+from apps.accounts.models import User
+from apps.agency.models import Client
 from apps.agency.models import Agency
 from django.db import models
 
@@ -39,3 +41,20 @@ class Subscription(models.Model):
     class Meta:
         verbose_name = "Subscription"
         verbose_name_plural = "Subscriptions"
+
+class ClientRevenue(models.Model):
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='revenues')
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='revenues')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    added_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='revenues')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"ClientRevenue {self.id}"
+
+    class Meta:
+        verbose_name = "ClientRevenue"
+        verbose_name_plural = "ClientRevenues"
+    

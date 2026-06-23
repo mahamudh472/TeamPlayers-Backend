@@ -4,7 +4,7 @@ Back to index: [ENDPOINT_LIST.md](../../ENDPOINT_LIST.md)
 
 ## Endpoint Inventory
 
-- GET `/api/v1/agency/clients/` — List clients with search, pagination, and static summary metrics.
+- GET `/api/v1/agency/clients/` — List clients with search, pagination, and dynamic total_revenue metrics.
 - POST `/api/v1/agency/clients/` — Create a new client manually.
 - GET `/api/v1/agency/clients/<id>/` — Retrieve details of a single client.
 - PATCH `/api/v1/agency/clients/<id>/` — Update details of a single client.
@@ -17,7 +17,7 @@ Back to index: [ENDPOINT_LIST.md](../../ENDPOINT_LIST.md)
 
 ## GET /api/v1/agency/clients/
 
-Description: Retrieve all clients belonging to the agency. Results can be paginated and filtered using the `search` query parameter. The search matches against company, contact person, contact email, location, industry, or contact phone. Also includes static summary metrics: `active_clients`, `total_revenue`, and `placement_rate`.
+Description: Retrieve all clients belonging to the agency. Results can be paginated and filtered using the `search` query parameter. The search matches against company, contact person, contact email, location, industry, or contact phone. Also includes dynamic summary metrics: `active_clients`, `total_revenue`, and static `placement_rate`.
 
 Auth: Required (Bearer access token)
 

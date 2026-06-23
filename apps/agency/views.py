@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
 from apps.agency.models import Agency
+from django.utils import timezone
 from apps.agency.services import (
     get_user_agencies,
     get_verified_agency,
@@ -28,7 +29,9 @@ from apps.agency.services import (
     reject_candidate,
     get_public_active_jobs,
     get_public_active_job_by_id,
-    save_cv_file
+    save_cv_file,
+    get_agency_placements,
+    get_agency_placement_counts
 )
 from apps.agency.services.leads import (
     get_agency_leads,
@@ -53,16 +56,24 @@ from apps.agency.serializers import (
     CandidateMeetingCreateSerializer,
     CandidateOfferSerializer,
     PlacementSerializer,
+    PlacementListSerializer,
     CandidateMeetingSerializer,
     PublicJobSerializer,
     PublicJobDetailSerializer,
-    CVUploadSerializer
+    CVUploadSerializer,
+    InterviewListSerializer,
+    CalendarMeetingSerializer
 )
 from apps.agency.services.jobs import get_client_jobs
 from apps.agency.services.clients import (
     get_client_activities,
     get_client_notes,
     add_note_to_client
+)
+from apps.agency.services.meetings import (
+    get_agency_meetings,
+    get_agency_meeting_counts,
+    get_agency_meetings_by_month
 )
 from apps.agency.paginations import StandardResultsSetPagination
 
@@ -261,9 +272,11 @@ class ClientListView(APIView):
         search_query = request.query_params.get('search')
         clients = get_agency_clients(agency, search_query)
         
+        from django.db.models import Sum
         # TODO: Replace static values with dynamic calculations once data tracking is implemented.
         active_clients = agency.clients.count()
-        total_revenue = 45000.0
+        total_revenue_sum = agency.revenues.aggregate(total=Sum('amount'))['total']
+        total_revenue = float(total_revenue_sum) if total_revenue_sum is not None else 0.0
         placement_rate = 85.5
 
         paginator = self.pagination_class()
@@ -801,6 +814,137 @@ class PublicCVUploadView(APIView):
             "file_path": file_path,
             "file_url": file_url
         }, status=status.HTTP_201_CREATED)
+
+
+class InterviewListView(APIView):
+    """
+    API endpoint to list and search interview meetings (candidate meetings) for the agency.
+
+    GET:
+        Returns a paginated list of interviews.
+        Supports status filtering via '?status=<upcoming|completed|scheduled|pending|cancelled|all>'.
+        Supports search via '?search=<query>' across candidate name, job title, and client company.
+        Includes summary counts: scheduled_count, completed_count, this_week_count.
+
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+
+    def get(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        status_filter = request.query_params.get('status')
+        search_query = request.query_params.get('search')
+
+        meetings = get_agency_meetings(agency, status_filter=status_filter, search_query=search_query)
+        counts = get_agency_meeting_counts(agency)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(meetings, request, view=self)
+        if page is not None:
+            serializer = InterviewListSerializer(page, many=True)
+            response_data = {
+                "count": paginator.page.paginator.count,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "results": serializer.data
+            }
+            response_data.update(counts)
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        serializer = InterviewListSerializer(meetings, many=True)
+        response_data = {
+            "results": serializer.data
+        }
+        response_data.update(counts)
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+class InterviewCalendarView(APIView):
+    """
+    API endpoint to list interview meetings for a specific month and year.
+
+    GET:
+        Returns a list of meetings with only date/time, candidate name, and position.
+        Query params: ?year=<int>&month=<int> (defaults to current year/month).
+
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        year_param = request.query_params.get('year')
+        month_param = request.query_params.get('month')
+
+        try:
+            year = int(year_param) if year_param else timezone.now().year
+            month = int(month_param) if month_param else timezone.now().month
+            if not (1 <= month <= 12):
+                raise ValueError
+        except ValueError:
+            return Response(
+                {"error": "Invalid year or month query parameter"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        meetings = get_agency_meetings_by_month(agency, year=year, month=month)
+        serializer = CalendarMeetingSerializer(meetings, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PlacementListView(APIView):
+    """
+    API endpoint to list, search, and filter placements for an agency.
+
+    GET:
+        Returns a paginated list of placements.
+        Supports status filtering via '?status=<all|offers|active>'.
+        Supports search via '?search=<query>' across candidate name, candidate email, job title, and client company.
+        Includes tab summary counts: all_count, offers_count, active_count.
+
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+
+    def get(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        status_filter = request.query_params.get('status')
+        search_query = request.query_params.get('search')
+
+        placements = get_agency_placements(agency, status_filter=status_filter, search_query=search_query)
+        counts = get_agency_placement_counts(agency)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(placements, request, view=self)
+        if page is not None:
+            serializer = PlacementListSerializer(page, many=True)
+            response_data = {
+                "count": paginator.page.paginator.count,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "results": serializer.data
+            }
+            response_data.update(counts)
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        serializer = PlacementListSerializer(placements, many=True)
+        response_data = {
+            "results": serializer.data
+        }
+        response_data.update(counts)
+        return Response(response_data, status=status.HTTP_200_OK)
+
 
 
 

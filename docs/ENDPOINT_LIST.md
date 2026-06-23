@@ -51,6 +51,9 @@ This index lists available API endpoints and links to the per-app reference page
 - [POST /api/v1/agency/candidates/<id>/accept/](endpoints/agency/candidates.md) — Set candidate status to accepted (authenticated)
 - [POST /api/v1/agency/candidates/<id>/reject/](endpoints/agency/candidates.md) — Set candidate status to rejected (authenticated)
 - [POST /api/v1/agency/candidates/public/upload-cv/](endpoints/agency/candidates.md) — Public endpoint to upload a CV/resume (public)
+- [GET  /api/v1/agency/interviews/](endpoints/agency/interviews.md) — List agency interviews with pagination, status filters, search, and summary metrics (authenticated)
+- [GET  /api/v1/agency/interviews/calendar/](endpoints/agency/interviews.md) — List agency interviews for a specific month/year, only containing date time, candidate name, and position (authenticated)
+- [GET  /api/v1/agency/placements/](endpoints/agency/placements.md) — List placements with pagination, filters, and status counts (authenticated)
 
 
 ---
@@ -65,4 +68,11 @@ This index lists available API endpoints and links to the per-app reference page
 
 ---
 
+### Finance
+
+- [POST /api/v1/finance/clients/<id>/revenue/](endpoints/finance.md) — Record client revenue (authenticated)
+
+---
+
 Add other apps here as their endpoint pages are created under `docs/endpoints/`.
+

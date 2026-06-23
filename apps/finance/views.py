@@ -7,9 +7,10 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 
 from apps.finance.models import Plan
-from apps.finance.serializers import PlanSerializer
-from apps.finance.services import get_agency_current_subscription
+from apps.finance.serializers import PlanSerializer, ClientRevenueSerializer
+from apps.finance.services import get_agency_current_subscription, add_client_revenue
 from apps.agency.models import Agency, AgencyMember
+from apps.agency.services import get_verified_agency
 
 @method_decorator(cache_page(60 * 60 * 24), name='dispatch')
 class PlanListView(ListAPIView):
@@ -251,4 +252,32 @@ class StripeWebhookView(ProcessWebhookView):
             endpoint.save()
 
         return super().post(request, uuid="12345678-1234-1234-1234-123456789012")
+
+
+class ClientRevenueCreateView(APIView):
+    """
+    API endpoint to record client revenue.
+    Requires user authentication, active agency membership, and valid client.
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, client_id):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        serializer = ClientRevenueSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        revenue = add_client_revenue(
+            agency=agency,
+            user=request.user,
+            client_id=client_id,
+            amount=serializer.validated_data['amount']
+        )
+
+        response_serializer = ClientRevenueSerializer(revenue)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
 

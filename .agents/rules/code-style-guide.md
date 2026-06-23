@@ -18,3 +18,4 @@ Refactoring: Continuously improve code structure through regular reviews and tes
 - Maintain service layer for making views lightweight. It should maintained inside services directory in the related app
 - Maintain utils for neccessary utility functions.
 - Don't create or run testcase if not asked.
+- Update docs after chagning any API response or adding new

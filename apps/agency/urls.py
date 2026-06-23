@@ -24,7 +24,10 @@ from .views import (
     CandidateRejectView,
     PublicJobListView,
     PublicJobDetailView,
-    PublicCVUploadView
+    PublicCVUploadView,
+    InterviewListView,
+    InterviewCalendarView,
+    PlacementListView
 )
 
 urlpatterns = [
@@ -34,6 +37,10 @@ urlpatterns = [
     path('leads/<int:pk>/notes/', LeadAddNoteView.as_view(), name='lead_add_note'),
     path('leads/<int:pk>/status/', LeadChangeStatusView.as_view(), name='lead_change_status'),
     path('webhooks/leads/', LeadWebhookIngestView.as_view(), name='lead_webhook_ingest'),
+    
+    path('interviews/', InterviewListView.as_view(), name='interview_list'),
+    path('interviews/calendar/', InterviewCalendarView.as_view(), name='interview_calendar'),
+    path('placements/', PlacementListView.as_view(), name='placement_list'),
     
     path('clients/', ClientListView.as_view(), name='client_list'),
     path('clients/<int:pk>/', ClientDetailView.as_view(), name='client_detail'),
