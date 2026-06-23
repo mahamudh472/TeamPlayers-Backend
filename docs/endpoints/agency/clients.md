@@ -17,7 +17,7 @@ Back to index: [ENDPOINT_LIST.md](../../ENDPOINT_LIST.md)
 
 ## GET /api/v1/agency/clients/
 
-Description: Retrieve all clients belonging to the agency. Results can be paginated and filtered using the `search` query parameter. The search matches against company, contact person, contact email, location, industry, or contact phone. Also includes dynamic summary metrics: `active_clients`, `total_revenue`, and static `placement_rate`.
+Description: Retrieve all clients belonging to the agency. Results can be paginated and filtered using the `search` query parameter. The search matches against company, contact person, contact email, location, industry, or contact phone. Also includes dynamic summary metrics: `active_clients`, `total_revenue`, and dynamic `placement_rate`.
 
 Auth: Required (Bearer access token)
 

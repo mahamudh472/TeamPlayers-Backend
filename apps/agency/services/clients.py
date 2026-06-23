@@ -101,4 +101,31 @@ def add_note_to_client(agency: Agency, user: User, client_id: int, content: str)
     )
     return note
 
+def get_client_success_rate(client: Client) -> float:
+    """
+    Calculates the dynamic success rate for a client.
+    Formula: (Number of placed placements / Total jobs for this client) * 100
+    Returns 0.0 if there are no jobs.
+    """
+    from apps.agency.models import Placement
+    total_jobs = client.jobs.count()
+    if total_jobs == 0:
+        return 0.0
+    placed_placements = Placement.objects.filter(job__client=client, status='placed').count()
+    return round((placed_placements / total_jobs) * 100, 1)
+
+def get_client_hiring_success_rate(client: Client) -> float:
+    """
+    Calculates the dynamic hiring success rate for a client.
+    Formula: (Number of accepted candidates / Total candidates) * 100
+    Returns 0.0 if there are no candidates.
+    """
+    from apps.agency.models import Candidate
+    total_candidates = Candidate.objects.filter(job__client=client).count()
+    if total_candidates == 0:
+        return 0.0
+    accepted_candidates = Candidate.objects.filter(job__client=client, status='accepted').count()
+    return round((accepted_candidates / total_candidates) * 100, 1)
+
+
 

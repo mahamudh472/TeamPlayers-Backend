@@ -171,8 +171,8 @@ class ClientDetailSerializer(ClientSerializer):
         ]
 
     def get_success_rate(self, obj):
-        # TODO: Make this dynamic once we have data tracking
-        return 92.5
+        from apps.agency.services import get_client_success_rate
+        return get_client_success_rate(obj)
 
     def get_last_ai_summary(self, obj):
         last_summary = obj.ai_summaries.order_by('-created_at').first()
@@ -185,8 +185,9 @@ class ClientDetailSerializer(ClientSerializer):
         return "healthy"
 
     def get_hiring_success_rate(self, obj):
-        # TODO: Make this dynamic once we have data tracking
-        return 88.0
+        from apps.agency.services import get_client_hiring_success_rate
+        return get_client_hiring_success_rate(obj)
+
 
     def get_recommended_actions(self, obj):
         # TODO: Make this dynamic once we have data tracking
@@ -227,13 +228,16 @@ class JobSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'client_name', 'created_at', 'updated_at']
 
     def get_applicants(self, obj):
-        return 12
+        from apps.agency.services import get_job_applicants_count
+        return get_job_applicants_count(obj)
 
     def get_shortlisted(self, obj):
-        return 4
+        from apps.agency.services import get_job_shortlisted_count
+        return get_job_shortlisted_count(obj)
 
     def get_interviewed(self, obj):
-        return 2
+        from apps.agency.services import get_job_interviewed_count
+        return get_job_interviewed_count(obj)
 
     def validate(self, attrs):
         agency = self.context.get('agency')
@@ -258,6 +262,7 @@ class CandidateMinSerializer(serializers.ModelSerializer):
             'experience',
             'current_salary',
             'expected_salary',
+            'status',
             'applied',
             'overall_match_percentage'
         ]

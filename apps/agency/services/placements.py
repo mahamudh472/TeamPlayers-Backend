@@ -47,3 +47,17 @@ def get_agency_placement_counts(agency: Agency) -> dict:
         "offers_count": offers_count,
         "active_count": active_count
     }
+
+def get_agency_placement_rate(agency: Agency) -> float:
+    """
+    Calculates the dynamic placement rate for an agency.
+    Formula: (Number of placements with status 'placed' / Total number of jobs) * 100
+    Returns 0.0 if there are no jobs.
+    """
+    from apps.agency.models import Job
+    total_jobs = Job.objects.filter(agency=agency).count()
+    if total_jobs == 0:
+        return 0.0
+    placed_count = Placement.objects.filter(agency=agency, status='placed').count()
+    return round((placed_count / total_jobs) * 100, 1)
+

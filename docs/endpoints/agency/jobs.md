@@ -16,7 +16,7 @@ Back to index: [ENDPOINT_LIST.md](../../ENDPOINT_LIST.md)
 
 ## GET /api/v1/agency/jobs/
 
-Description: Retrieve all jobs belonging to the agency. Results can be paginated and filtered using the `search` query parameter. The search matches against title, description, location, or client company. Includes static summary metrics: `active_jobs`, `total_applicants`, `shortlisted`, and `avg_time_to_fill`. Each list item also includes static `applicants`, `shortlisted`, and `interviewed` metrics.
+Description: Retrieve all jobs belonging to the agency. Results can be paginated and filtered using the `search` query parameter. The search matches against title, description, location, or client company. Includes dynamic summary metrics: `active_jobs`, `total_applicants`, `shortlisted`, and `interviewed`. Each list item also includes dynamic `applicants`, `shortlisted`, and `interviewed` metrics.
 
 Auth: Required (Bearer access token)
 
@@ -39,7 +39,7 @@ Success response (200):
   "active_jobs": 8,
   "total_applicants": 42,
   "shortlisted": 15,
-  "avg_time_to_fill": 18.5,
+  "interviewed": 5,
   "results": [
     {
       "id": 1,

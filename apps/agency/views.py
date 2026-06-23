@@ -253,7 +253,7 @@ class ClientListView(APIView):
     GET:
         Returns a paginated list of clients for the agency.
         Supports search via '?search=<query>' across company, contact details, location, and industry.
-        Includes static summary statistics: active_clients, total_revenue, placement_rate.
+        Includes dynamic summary statistics: active_clients, total_revenue, placement_rate.
         
     POST:
         Manually creates a new client for the agency.
@@ -273,11 +273,11 @@ class ClientListView(APIView):
         clients = get_agency_clients(agency, search_query)
         
         from django.db.models import Sum
-        # TODO: Replace static values with dynamic calculations once data tracking is implemented.
+        from apps.agency.services import get_agency_placement_rate
         active_clients = agency.clients.count()
         total_revenue_sum = agency.revenues.aggregate(total=Sum('amount'))['total']
         total_revenue = float(total_revenue_sum) if total_revenue_sum is not None else 0.0
-        placement_rate = 85.5
+        placement_rate = get_agency_placement_rate(agency)
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(clients, request, view=self)
@@ -300,6 +300,7 @@ class ClientListView(APIView):
             "placement_rate": placement_rate,
             "results": serializer.data
         }, status=status.HTTP_200_OK)
+
 
     def post(self, request):
         agency_id = request.agency_id
@@ -354,7 +355,7 @@ class JobListView(APIView):
     GET:
         Returns a paginated list of jobs for the agency.
         Supports search via '?search=<query>' across title, description, location, and client company.
-        Includes static summary statistics: active_jobs, total_applicants, shortlisted, avg_time_to_fill.
+        Includes dynamic summary statistics: active_jobs, total_applicants, shortlisted, and interviewed.
 
     POST:
         Creates a new job for the agency.
@@ -373,11 +374,8 @@ class JobListView(APIView):
         search_query = request.query_params.get('search')
         jobs = get_agency_jobs(agency, search_query)
 
-        # Static values for summary fields
-        active_jobs = 8
-        total_applicants = 42
-        shortlisted = 15
-        avg_time_to_fill = 18.5
+        from apps.agency.services import get_agency_job_stats
+        stats = get_agency_job_stats(agency)
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(jobs, request, view=self)
@@ -387,19 +385,19 @@ class JobListView(APIView):
                 "count": paginator.page.paginator.count,
                 "next": paginator.get_next_link(),
                 "previous": paginator.get_previous_link(),
-                "active_jobs": active_jobs,
-                "total_applicants": total_applicants,
-                "shortlisted": shortlisted,
-                "avg_time_to_fill": avg_time_to_fill,
+                "active_jobs": stats["active_jobs"],
+                "total_applicants": stats["total_applicants"],
+                "shortlisted": stats["shortlisted"],
+                "interviewed": stats["interviewed"],
                 "results": serializer.data
             }, status=status.HTTP_200_OK)
 
         serializer = JobSerializer(jobs, many=True, context={'agency': agency})
         return Response({
-            "active_jobs": active_jobs,
-            "total_applicants": total_applicants,
-            "shortlisted": shortlisted,
-            "avg_time_to_fill": avg_time_to_fill,
+            "active_jobs": stats["active_jobs"],
+            "total_applicants": stats["total_applicants"],
+            "shortlisted": stats["shortlisted"],
+            "interviewed": stats["interviewed"],
             "results": serializer.data
         }, status=status.HTTP_200_OK)
 

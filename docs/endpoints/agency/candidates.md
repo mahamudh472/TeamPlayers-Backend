@@ -53,6 +53,7 @@ Success response (200):
       "experience": 5,
       "current_salary": "$120,000",
       "expected_salary": "$140,000",
+      "status": "new",
       "applied": "2026-06-20T10:00:00.123456Z",
       "overall_match_percentage": 85.0
     }

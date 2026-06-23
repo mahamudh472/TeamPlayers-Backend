@@ -89,4 +89,31 @@ def get_public_active_job_by_id(job_id: int) -> Job:
     except (Job.DoesNotExist, ValueError):
         raise NotFound("Job not found")
 
+def get_agency_job_stats(agency: Agency) -> dict:
+    """
+    Calculates dynamic summary metrics for an agency's job dashboard.
+    """
+    from apps.agency.models import Candidate
+    active_jobs = Job.objects.filter(agency=agency, status='open').count()
+    total_applicants = Candidate.objects.filter(agency=agency).count()
+    shortlisted = Candidate.objects.filter(agency=agency, status='shortlisted').count()
+    interviewed = Candidate.objects.filter(agency=agency, status='interviewing').count()
+
+    return {
+        "active_jobs": active_jobs,
+        "total_applicants": total_applicants,
+        "shortlisted": shortlisted,
+        "interviewed": interviewed
+    }
+
+def get_job_applicants_count(job: Job) -> int:
+    return job.candidates.count()
+
+def get_job_shortlisted_count(job: Job) -> int:
+    return job.candidates.filter(status='shortlisted').count()
+
+def get_job_interviewed_count(job: Job) -> int:
+    return job.candidates.filter(status='interviewing').count()
+
+
 
