@@ -105,6 +105,7 @@ INSTALLED_APPS = [
     'apps.agency',
     'apps.finance',
     'apps.integrations',
+    'apps.ai',
     'djstripe',
 
     'rest_framework',

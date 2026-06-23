@@ -30,3 +30,15 @@ types-psycopg2==2.9.21.20260422
 types-pyyaml==6.0.12.20260408
 typing-extensions==4.15.0
 urllib3==2.7.0
+
+# AI Services dependencies
+openai>=1.66.0
+pydantic>=2.10.0
+pydantic-settings
+email-validator
+pandas
+openpyxl
+PyMuPDF
+python-docx
+tqdm
+
