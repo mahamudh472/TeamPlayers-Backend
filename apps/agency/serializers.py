@@ -467,6 +467,7 @@ class PublicJobDetailSerializer(PublicJobSerializer):
 
 class CVUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
+    job = serializers.IntegerField(required=True)
 
 
 class InterviewListSerializer(serializers.ModelSerializer):

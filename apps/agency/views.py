@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
-from apps.agency.models import Agency
+from apps.agency.models import Agency, Job
 from django.utils import timezone
 from apps.agency.services import (
     get_user_agencies,
@@ -561,6 +561,30 @@ class CandidateListView(APIView):
         response_data.update(counts)
         return Response(response_data, status=status.HTTP_200_OK)
 
+    def post(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        serializer = CVUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        job_id = serializer.validated_data['job']
+        try:
+            job = Job.objects.get(id=job_id, agency=agency)
+        except (Job.DoesNotExist, ValueError):
+            return Response(
+                {"job": "Job not found or does not belong to this agency."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        cv_file = serializer.validated_data['file']
+
+        from apps.agency.services.candidates import create_candidate_from_resume
+        candidate = create_candidate_from_resume(agency, job, cv_file)
+
+        response_serializer = CandidateDetailSerializer(candidate, context={'request': request})
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
 
 class CandidateDetailView(APIView):
     """
@@ -795,7 +819,7 @@ class PublicJobDetailView(APIView):
 class PublicCVUploadView(APIView):
     """
     API endpoint for public users to upload a CV/resume.
-    Returns saved file path and URL.
+    Parses the resume details and creates candidate and AI analysis records.
     """
     permission_classes = [AllowAny]
 
@@ -803,16 +827,30 @@ class PublicCVUploadView(APIView):
         serializer = CVUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        job_id = serializer.validated_data['job']
+        try:
+            job = Job.objects.get(id=job_id)
+        except (Job.DoesNotExist, ValueError):
+            return Response(
+                {"job": "Job not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        agency = job.agency
         cv_file = serializer.validated_data['file']
-        file_path = save_cv_file(cv_file)
+
+        from apps.agency.services.candidates import create_candidate_from_resume
+        candidate = create_candidate_from_resume(agency, job, cv_file)
 
         # Build absolute URL using request
-        file_url = request.build_absolute_uri(settings.MEDIA_URL + file_path)
+        file_url = request.build_absolute_uri(settings.MEDIA_URL + str(candidate.resume))
+        candidate_data = CandidateDetailSerializer(candidate, context={'request': request}).data
 
         return Response({
-            "message": "CV uploaded successfully",
-            "file_path": file_path,
-            "file_url": file_url
+            "message": "CV uploaded and candidate profile parsed successfully.",
+            "file_path": str(candidate.resume),
+            "file_url": file_url,
+            "candidate": candidate_data
         }, status=status.HTTP_201_CREATED)
 
 

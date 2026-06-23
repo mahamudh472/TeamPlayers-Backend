@@ -183,6 +183,8 @@ class Candidate(models.Model):
     agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='candidates')
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='candidates')
 
+    ai_extracted_raw_json = models.JSONField(blank=True, null=True)
+    
     name = models.CharField(max_length=100)
     email = models.EmailField()
     phone = models.CharField(max_length=15, blank=True, null=True)

@@ -5,6 +5,7 @@ Back to index: [ENDPOINT_LIST.md](../../ENDPOINT_LIST.md)
 ## Endpoint Inventory
 
 - GET `/api/v1/agency/candidates/` — List candidates with search, pagination, and status counts.
+- POST `/api/v1/agency/candidates/` — Recruiter endpoint to upload/import candidate by parsing a CV/resume.
 - GET `/api/v1/agency/candidates/<id>/` — Retrieve details of a single candidate.
 - GET `/api/v1/agency/candidates/<id>/notes/` — Retrieve notes for a single candidate.
 - POST `/api/v1/agency/candidates/<id>/notes/` — Add a note for a single candidate.
@@ -13,7 +14,7 @@ Back to index: [ENDPOINT_LIST.md](../../ENDPOINT_LIST.md)
 - POST `/api/v1/agency/candidates/<id>/offer/` — Send offer and create placement.
 - POST `/api/v1/agency/candidates/<id>/accept/` — Set candidate status to accepted.
 - POST `/api/v1/agency/candidates/<id>/reject/` — Set candidate status to rejected.
-- POST `/api/v1/agency/candidates/public/upload-cv/` — Public endpoint to upload a CV/resume.
+- POST `/api/v1/agency/candidates/public/upload-cv/` — Public endpoint to upload a CV/resume (creates candidate and triggers AI analysis).
 
 ---
 
@@ -504,32 +505,125 @@ Error responses:
 
 ---
 
+## POST /api/v1/agency/candidates/
+
+Description: Recruiter endpoint to upload a candidate CV/resume, parse candidate details, save the raw json, and trigger the AI scoring, explanation, and Candidate AI Analysis record creation.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Request Payload (multipart/form-data):
+- `file`: The CV/resume file (PDF, DOCX, DOC etc.)
+- `job`: The Job ID (Integer)
+
+Success response (201):
+```json
+{
+  "id": 1,
+  "name": "Jane Smith",
+  "email": "jane.smith@example.com",
+  "phone": "+15550199",
+  "location": "San Francisco, CA",
+  "experience": 5,
+  "skills": ["Python", "Django", "React"],
+  "current_salary": "$120,000",
+  "expected_salary": "$140,000",
+  "resume": "http://localhost:8000/media/candidates/resumes/resume.pdf",
+  "status": "new",
+  "applied": "2026-06-20T10:00:00.123456Z",
+  "applied_at": "2026-06-20T10:00:00.123456Z",
+  "ai_analysis": {
+    "summary": "Strong candidate with solid backend and frontend experience.",
+    "key_strength": ["Django proficiency", "System design"],
+    "potential_concerns": ["Expected salary is slightly high"],
+    "skills_match": 90.0,
+    "experience_match": 85.0,
+    "salary_match": 80.0,
+    "location_match": 100.0,
+    "overall_match_percentage": 85.0
+  },
+  "job_info": {
+    "id": 2,
+    "name": "Senior Software Engineer",
+    "location": "San Francisco, CA",
+    "salary_range": "$110,000 - $130,000"
+  },
+  "recommended_actions": [
+    "Schedule next round interview",
+    "Request reference checks from candidate",
+    "Send technical assessment test",
+    "Review portfolio and key projects"
+  ]
+}
+```
+
+Error responses:
+- 400: Validation error
+- 404: Job not found or does not belong to agency
+
+---
+
 ## POST /api/v1/agency/candidates/public/upload-cv/
 
-Description: Public endpoint for uploading a candidate CV/resume file. Currently, the file is saved to storage, and the path/URL is returned.
+Description: Public endpoint for candidates to apply to a specific job by uploading their CV/resume. Saves the resume file, extracts details via AI, creates the Candidate, and executes candidate matching and analysis.
 
 Auth: None (Public)
 
 Request Payload (multipart/form-data):
 - `file`: The CV/resume file (PDF, DOCX, DOC etc.)
+- `job`: The Job ID (Integer)
 
 Success response (201):
-
 ```json
 {
-  "message": "CV uploaded successfully",
+  "message": "CV uploaded and candidate profile parsed successfully.",
   "file_path": "candidates/resumes/my_resume_xyz.pdf",
-  "file_url": "http://localhost:8000/media/candidates/resumes/my_resume_xyz.pdf"
+  "file_url": "http://localhost:8000/media/candidates/resumes/my_resume_xyz.pdf",
+  "candidate": {
+    "id": 1,
+    "name": "Jane Smith",
+    "email": "jane.smith@example.com",
+    "phone": "+15550199",
+    "location": "San Francisco, CA",
+    "experience": 5,
+    "skills": ["Python", "Django", "React"],
+    "current_salary": "$120,000",
+    "expected_salary": "$140,000",
+    "resume": "http://localhost:8000/media/candidates/resumes/resume.pdf",
+    "status": "new",
+    "applied": "2026-06-20T10:00:00.123456Z",
+    "applied_at": "2026-06-20T10:00:00.123456Z",
+    "ai_analysis": {
+      "summary": "Strong candidate with solid backend and frontend experience.",
+      "key_strength": ["Django proficiency", "System design"],
+      "potential_concerns": ["Expected salary is slightly high"],
+      "skills_match": 90.0,
+      "experience_match": 85.0,
+      "salary_match": 80.0,
+      "location_match": 100.0,
+      "overall_match_percentage": 85.0
+    },
+    "job_info": {
+      "id": 2,
+      "name": "Senior Software Engineer",
+      "location": "San Francisco, CA",
+      "salary_range": "$110,000 - $130,000"
+    },
+    "recommended_actions": [
+      "Schedule next round interview",
+      "Request reference checks from candidate",
+      "Send technical assessment test",
+      "Review portfolio and key projects"
+    ]
+  }
 }
 ```
 
 Error responses:
-- 400: Validation error (e.g. no file provided)
-```json
-{
-  "file": [
-    "No file was submitted."
-  ]
-}
-```
+- 400: Validation error (e.g. no file or job provided)
+- 404: Job not found
+
 
