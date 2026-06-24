@@ -1162,8 +1162,49 @@ class AcceptInvitationView(APIView):
         return redirect(redirect_url)
 
 
+class GenerateJobDescriptionView(APIView):
+    """
+    API endpoint to generate a structured job description using AI.
 
+    POST:
+        Accepts a document file (PDF, DOCX, TXT) and/or freeform text.
+        Returns a structured job description on success,
+        or an error if the input is unrelated or unprocessable.
 
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        agency_id = request.agency_id
+        get_verified_agency(request.user, agency_id)
+
+        document = request.FILES.get('document')
+        text = request.data.get('text')
+
+        from apps.agency.services.job_description import (
+            generate_job_description,
+        )
+
+        result = generate_job_description(
+            document=document,
+            text=text,
+        )
+
+        if result.get("success"):
+            return Response(result, status=status.HTTP_200_OK)
+
+        return Response(
+            {
+                "error": result.get(
+                    "error_message",
+                    "Could not generate a job description "
+                    "from the provided input.",
+                )
+            },
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
 
 
 

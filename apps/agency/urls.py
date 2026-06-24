@@ -33,7 +33,8 @@ from .views import (
     AnalyticsView,
     AgencyMemberListView,
     AgencyMemberDetailView,
-    AcceptInvitationView
+    AcceptInvitationView,
+    GenerateJobDescriptionView
 )
 
 urlpatterns = [
@@ -58,6 +59,7 @@ urlpatterns = [
     path('clients/<int:pk>/notes/', ClientNotesView.as_view(), name='client_notes'),
 
     path('jobs/', JobListView.as_view(), name='job_list'),
+    path('jobs/generate-description/', GenerateJobDescriptionView.as_view(), name='generate_job_description'),
     path('jobs/<int:pk>/', JobDetailView.as_view(), name='job_detail'),
     path('jobs/public/', PublicJobListView.as_view(), name='public_job_list'),
     path('jobs/public/<int:pk>/', PublicJobDetailView.as_view(), name='public_job_detail'),
