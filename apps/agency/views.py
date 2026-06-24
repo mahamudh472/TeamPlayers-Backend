@@ -29,10 +29,10 @@ from apps.agency.services import (
     reject_candidate,
     get_public_active_jobs,
     get_public_active_job_by_id,
-    save_cv_file,
     get_agency_placements,
     get_agency_placement_counts,
-    get_dashboard_data
+    get_dashboard_data,
+    get_analytics_data
 )
 from apps.agency.services.leads import (
     get_agency_leads,
@@ -996,6 +996,24 @@ class DashboardView(APIView):
         
         data = get_dashboard_data(agency)
         return Response(data, status=status.HTTP_200_OK)
+
+
+class AnalyticsView(APIView):
+    """
+    API endpoint to retrieve detailed analytics, performance insights, and trends for the agency.
+    Supports range parameter (e.g. ?range=last_year, last_month, last_3_months, all_time).
+    Requires header: X-Agency-ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        range_param = request.query_params.get('range', 'last_year')
+        data = get_analytics_data(agency, range_param)
+        return Response(data, status=status.HTTP_200_OK)
+
 
 
 
