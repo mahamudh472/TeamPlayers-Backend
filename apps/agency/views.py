@@ -31,7 +31,8 @@ from apps.agency.services import (
     get_public_active_job_by_id,
     save_cv_file,
     get_agency_placements,
-    get_agency_placement_counts
+    get_agency_placement_counts,
+    get_dashboard_data
 )
 from apps.agency.services.leads import (
     get_agency_leads,
@@ -980,6 +981,21 @@ class PlacementListView(APIView):
         }
         response_data.update(counts)
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+class DashboardView(APIView):
+    """
+    API endpoint to retrieve all dashboard statistics, metrics, and trends for the agency.
+    Requires header: X-Agency-ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        data = get_dashboard_data(agency)
+        return Response(data, status=status.HTTP_200_OK)
 
 
 

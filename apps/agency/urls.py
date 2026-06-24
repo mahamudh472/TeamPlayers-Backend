@@ -27,11 +27,13 @@ from .views import (
     PublicCVUploadView,
     InterviewListView,
     InterviewCalendarView,
-    PlacementListView
+    PlacementListView,
+    DashboardView
 )
 
 urlpatterns = [
     path('', UserAgencyListView.as_view(), name='user_agency_list'),
+    path('dashboard/', DashboardView.as_view(), name='agency_dashboard'),
     path('leads/', LeadListView.as_view(), name='lead_list'),
     path('leads/<int:pk>/', LeadDetailView.as_view(), name='lead_detail'),
     path('leads/<int:pk>/notes/', LeadAddNoteView.as_view(), name='lead_add_note'),
