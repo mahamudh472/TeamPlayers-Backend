@@ -1047,6 +1047,122 @@ class AgencyInfoView(APIView):
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
+class AgencyMemberListView(APIView):
+    """
+    API endpoint to list and invite agency members.
+    GET:
+        Returns a list of active agency members (both accepted and pending).
+    POST:
+        Invites a new member to the agency.
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        from apps.agency.services.members import get_agency_members
+        from apps.agency.serializers import AgencyMemberSerializer
+        
+        members = get_agency_members(agency)
+        serializer = AgencyMemberSerializer(members, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        from apps.agency.serializers import InviteMemberSerializer, AgencyMemberSerializer
+        from apps.agency.services.members import invite_agency_member
+        
+        serializer = InviteMemberSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        member = invite_agency_member(
+            agency=agency,
+            current_user=request.user,
+            email=serializer.validated_data['email'],
+            role=serializer.validated_data['role'],
+            request=request
+        )
+        response_serializer = AgencyMemberSerializer(member)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class AgencyMemberDetailView(APIView):
+    """
+    API endpoint to update or remove an agency member.
+    PATCH:
+        Updates an agency member's role.
+    DELETE:
+        Removes an agency member.
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        role = request.data.get('role')
+        if not role:
+            return Response({"role": "This field is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if role not in ['owner', 'admin', 'recruiter']:
+            return Response({"role": f"'{role}' is not a valid choice."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        from apps.agency.services.members import update_agency_member_role
+        from apps.agency.serializers import AgencyMemberSerializer
+        
+        member = update_agency_member_role(
+            agency=agency,
+            current_user=request.user,
+            member_id=pk,
+            new_role=role
+        )
+        response_serializer = AgencyMemberSerializer(member)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        from apps.agency.services.members import remove_agency_member
+        
+        remove_agency_member(
+            agency=agency,
+            current_user=request.user,
+            member_id=pk
+        )
+        return Response({"message": "Member removed successfully"}, status=status.HTTP_200_OK)
+
+
+class AcceptInvitationView(APIView):
+    """
+    Public API endpoint to accept an agency invitation.
+    GET:
+        Accepts the invitation via the signed token and redirects to the frontend login page.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        token = request.query_params.get('token')
+        if not token:
+            return Response({"error": "Token query parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        from apps.agency.services.members import accept_agency_invitation
+        from django.shortcuts import redirect
+        
+        accept_agency_invitation(token)
+        
+        # Redirect to the frontend login page with a success message query param
+        redirect_url = f"{settings.FRONTEND_URL}/login?invite_accepted=true"
+        return redirect(redirect_url)
+
+
+
 
 
 

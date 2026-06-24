@@ -30,7 +30,10 @@ from .views import (
     InterviewCalendarView,
     PlacementListView,
     DashboardView,
-    AnalyticsView
+    AnalyticsView,
+    AgencyMemberListView,
+    AgencyMemberDetailView,
+    AcceptInvitationView
 )
 
 urlpatterns = [
@@ -69,6 +72,11 @@ urlpatterns = [
     path('candidates/<int:pk>/accept/', CandidateAcceptView.as_view(), name='candidate_accept'),
     path('candidates/<int:pk>/reject/', CandidateRejectView.as_view(), name='candidate_reject'),
     path('candidates/public/upload-cv/', PublicCVUploadView.as_view(), name='public_cv_upload'),
+
+    # Agency Team Member routes
+    path('members/', AgencyMemberListView.as_view(), name='agency_member_list'),
+    path('members/<int:pk>/', AgencyMemberDetailView.as_view(), name='agency_member_detail'),
+    path('members/accept-invite/', AcceptInvitationView.as_view(), name='agency_member_accept_invite'),
 ]
 
 
