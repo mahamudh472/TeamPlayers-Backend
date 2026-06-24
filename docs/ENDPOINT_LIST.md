@@ -22,6 +22,8 @@ This index lists available API endpoints and links to the per-app reference page
 
 - [GET  /api/v1/agency/dashboard/](endpoints/agency/dashboard.md) — Retrieve comprehensive dashboard statistics, trends, and health lists for the agency (authenticated)
 - [GET  /api/v1/agency/analytics/](endpoints/agency/analytics.md) — Retrieve comprehensive performance insights, metric cards, charts, and tab details for the agency (authenticated)
+- [GET  /api/v1/agency/info/](endpoints/agency/info.md) — Retrieve the active agency's name and logo (authenticated)
+- [PATCH /api/v1/agency/info/](endpoints/agency/info.md) — Update the active agency's name and/or logo (authenticated)
 - [GET  /api/v1/agency/leads/](endpoints/agency/leads.md) — List agency leads, filterable by status, with status counts (authenticated)
 - [GET  /api/v1/agency/leads/<id>/](endpoints/agency/leads.md) — Retrieve details of a single lead, including its notes (authenticated)
 - [POST /api/v1/agency/leads/<id>/notes/](endpoints/agency/leads.md) — Add a new note for a lead (authenticated)

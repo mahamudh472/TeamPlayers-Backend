@@ -68,5 +68,11 @@ def get_verified_agency(user, agency_id) -> Agency:
     return agency
 
 
-
-
+def update_agency_info(agency: Agency, agency_data: dict) -> Agency:
+    """
+    Updates an agency with the given data (name and logo).
+    """
+    for field, value in agency_data.items():
+        setattr(agency, field, value)
+    agency.save()
+    return agency

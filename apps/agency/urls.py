@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     UserAgencyListView,
+    AgencyInfoView,
     LeadListView,
     LeadDetailView,
     LeadAddNoteView,
@@ -34,6 +35,7 @@ from .views import (
 
 urlpatterns = [
     path('', UserAgencyListView.as_view(), name='user_agency_list'),
+    path('info/', AgencyInfoView.as_view(), name='agency_info'),
     path('dashboard/', DashboardView.as_view(), name='agency_dashboard'),
     path('analytics/', AnalyticsView.as_view(), name='agency_analytics'),
     path('leads/', LeadListView.as_view(), name='lead_list'),

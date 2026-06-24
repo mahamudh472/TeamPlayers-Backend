@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.agency.models import AgencyMember, Leads, Note, Client, ClientAISummary, Job, ClientActivity, Candidate, CandidateAIAnalysis, Placement, CandidateMeeting
+from apps.agency.models import Agency, AgencyMember, Leads, Note, Client, ClientAISummary, Job, ClientActivity, Candidate, CandidateAIAnalysis, Placement, CandidateMeeting
 from apps.accounts.models import User
 
 class UserAgencySerializer(serializers.ModelSerializer):
@@ -512,6 +512,26 @@ class CalendarMeetingSerializer(serializers.ModelSerializer):
             'position'
         ]
         read_only_fields = fields
+
+
+class AgencySerializer(serializers.ModelSerializer):
+    current_plan = serializers.SerializerMethodField()
+    team_size = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Agency
+        fields = ['id', 'name', 'logo', 'current_plan', 'team_size']
+        read_only_fields = ['id', 'current_plan', 'team_size']
+
+    def get_current_plan(self, obj):
+        from apps.finance.services.plans import get_agency_current_subscription
+        subscription = get_agency_current_subscription(obj.id)
+        if subscription and subscription.plan:
+            return subscription.plan.name
+        return "Free"
+
+    def get_team_size(self, obj):
+        return obj.members.filter(is_active=True, invitation_status='accepted').count()
 
 
 

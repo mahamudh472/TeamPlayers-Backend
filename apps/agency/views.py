@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.agency.services import (
     get_user_agencies,
     get_verified_agency,
+    update_agency_info,
     get_agency_clients,
     get_agency_client_by_id,
     create_manual_client,
@@ -43,6 +44,7 @@ from apps.agency.services.leads import (
     update_lead_status
 )
 from apps.agency.serializers import (
+    AgencySerializer,
     UserAgencySerializer,
     LeadSerializer,
     LeadDetailSerializer,
@@ -1013,6 +1015,36 @@ class AnalyticsView(APIView):
         range_param = request.query_params.get('range', 'last_year')
         data = get_analytics_data(agency, range_param)
         return Response(data, status=status.HTTP_200_OK)
+
+
+class AgencyInfoView(APIView):
+    """
+    API endpoint to retrieve and update the details of the active agency.
+    GET:
+        Returns details of the active agency (id, name, logo).
+    PATCH:
+        Partially updates agency details (name, logo).
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        serializer = AgencySerializer(agency, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        serializer = AgencySerializer(agency, data=request.data, partial=True, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        
+        updated_agency = update_agency_info(agency, serializer.validated_data)
+        response_serializer = AgencySerializer(updated_agency, context={'request': request})
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
 
