@@ -9,6 +9,7 @@ Back to index: [ENDPOINT_LIST.md](../../ENDPOINT_LIST.md)
 - GET `/api/v1/agency/candidates/<id>/` — Retrieve details of a single candidate.
 - GET `/api/v1/agency/candidates/<id>/notes/` — Retrieve notes for a single candidate.
 - POST `/api/v1/agency/candidates/<id>/notes/` — Add a note for a single candidate.
+- GET `/api/v1/agency/candidates/<id>/activities/` — Retrieve activity history for a specific candidate.
 - POST `/api/v1/agency/candidates/<id>/shortlist/` — Shortlist a candidate.
 - POST `/api/v1/agency/candidates/<id>/meeting/` — Create Zoom meeting and invite candidate.
 - POST `/api/v1/agency/candidates/<id>/offer/` — Send offer and create placement.
@@ -626,5 +627,43 @@ Success response (201):
 Error responses:
 - 400: Validation error (e.g. no file or job provided)
 - 404: Job not found
+
+---
+
+## GET /api/v1/agency/candidates/<id>/activities/
+
+Description: Retrieve a history of activities associated with a specific candidate.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Success response (200):
+
+```json
+[
+  {
+    "id": 1,
+    "candidate": 2,
+    "user": {
+      "id": "e229d494-b152-4752-95b6-6d2745cf0249",
+      "email": "agent@agency.com",
+      "full_name": "Agency Agent"
+    },
+    "summary": "Shortlisted candidate Jane Smith for job Senior Software Engineer",
+    "created_at": "2026-06-25T06:30:00.123456Z",
+    "updated_at": "2026-06-25T06:30:00.123456Z"
+  }
+]
+```
+
+Error responses:
+- 404: Candidate not found
+```json
+{ "detail": "Candidate not found" }
+```
+
 
 

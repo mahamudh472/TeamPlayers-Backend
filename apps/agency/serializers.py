@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.agency.models import Agency, AgencyMember, Leads, Note, Client, ClientAISummary, Job, ClientActivity, Candidate, CandidateAIAnalysis, Placement, CandidateMeeting, LeadGenerationSession
+from apps.agency.models import Agency, AgencyMember, Leads, Note, Client, ClientAISummary, Job, Activity, Candidate, CandidateAIAnalysis, Placement, CandidateMeeting, LeadGenerationSession
 from apps.accounts.models import User
 
 class UserAgencySerializer(serializers.ModelSerializer):
@@ -140,9 +140,10 @@ class ClientAISummarySerializer(serializers.ModelSerializer):
 
 class ClientActivitySerializer(serializers.ModelSerializer):
     user = UserMinSerializer(read_only=True)
+    client = serializers.IntegerField(source='model_id', read_only=True)
 
     class Meta:
-        model = ClientActivity
+        model = Activity
         fields = [
             'id',
             'client',
@@ -152,6 +153,23 @@ class ClientActivitySerializer(serializers.ModelSerializer):
             'updated_at'
         ]
         read_only_fields = ['id', 'client', 'user', 'created_at', 'updated_at']
+
+
+class CandidateActivitySerializer(serializers.ModelSerializer):
+    user = UserMinSerializer(read_only=True)
+    candidate = serializers.IntegerField(source='model_id', read_only=True)
+
+    class Meta:
+        model = Activity
+        fields = [
+            'id',
+            'candidate',
+            'user',
+            'summary',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'candidate', 'user', 'created_at', 'updated_at']
 
 
 class ClientDetailSerializer(ClientSerializer):

@@ -1,5 +1,5 @@
 from django.db.models import QuerySet
-from apps.agency.models import Agency, AgencyMember
+from apps.agency.models import Agency, AgencyMember, Activity
 from rest_framework.exceptions import APIException, PermissionDenied, NotFound
 from rest_framework import status
 
@@ -68,11 +68,20 @@ def get_verified_agency(user, agency_id) -> Agency:
     return agency
 
 
-def update_agency_info(agency: Agency, agency_data: dict) -> Agency:
+def update_agency_info(agency: Agency, agency_data: dict, user=None) -> Agency:
     """
     Updates an agency with the given data (name and logo).
     """
     for field, value in agency_data.items():
         setattr(agency, field, value)
     agency.save()
+
+    Activity.objects.create(
+        model='agency',
+        model_id=agency.id,
+        agency=agency,
+        user=user,
+        summary=f"Updated agency details"
+    )
+
     return agency

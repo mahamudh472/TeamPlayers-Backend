@@ -1,6 +1,6 @@
 from typing import Dict
 from django.db.models import Count, QuerySet
-from apps.agency.models import Agency, Leads, Note
+from apps.agency.models import Agency, Leads, Note, Activity
 from apps.accounts.models import User
 from rest_framework.exceptions import NotFound
 
@@ -70,7 +70,7 @@ def add_note_to_lead(agency: Agency, user: User, lead_id: int, content: str) -> 
     return note
 
 
-def ingest_bulk_leads(agency: Agency, leads_data: list[dict]) -> list[Leads]:
+def ingest_bulk_leads(agency: Agency, leads_data: list[dict], user=None) -> list[Leads]:
     """
     Creates multiple Lead objects for a given agency from list data.
     """
@@ -89,10 +89,17 @@ def ingest_bulk_leads(agency: Agency, leads_data: list[dict]) -> list[Leads]:
             agency=agency
         )
         created_leads.append(lead)
+        Activity.objects.create(
+            model='lead',
+            model_id=lead.id,
+            agency=agency,
+            user=user,
+            summary=f"Ingested lead for {lead.company} via webhook"
+        )
     return created_leads
 
 
-def update_lead_status(agency: Agency, lead_id: int, status_val: str) -> Leads:
+def update_lead_status(agency: Agency, lead_id: int, status_val: str, user=None) -> Leads:
     """
     Verifies lead existence and updates its status.
     """
@@ -106,6 +113,15 @@ def update_lead_status(agency: Agency, lead_id: int, status_val: str) -> Leads:
         
     lead.status = status_val
     lead.save()
+
+    Activity.objects.create(
+        model='lead',
+        model_id=lead.id,
+        agency=agency,
+        user=user,
+        summary=f"Changed status of lead {lead.company} to {status_val.title()}"
+    )
+
     return lead
 
 

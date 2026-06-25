@@ -3,7 +3,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
 from rest_framework.exceptions import PermissionDenied, NotFound, ValidationError
-from apps.agency.models import Agency, AgencyMember
+from apps.agency.models import Agency, AgencyMember, Activity
 from apps.accounts.models import User
 import secrets
 import string
@@ -42,6 +42,15 @@ def update_agency_member_role(agency: Agency, current_user: User, member_id: int
 
     target_member.role = new_role
     target_member.save()
+
+    Activity.objects.create(
+        model='member',
+        model_id=target_member.id,
+        agency=agency,
+        user=current_user,
+        summary=f"Updated role of member {target_member.user.email} to {new_role}"
+    )
+
     return target_member
 
 def remove_agency_member(agency: Agency, current_user: User, member_id: int) -> None:
@@ -68,6 +77,14 @@ def remove_agency_member(agency: Agency, current_user: User, member_id: int) -> 
     # 2. Admin cannot remove another admin (only owner can remove admins)
     if target_member.role == 'admin' and current_member.role != 'owner':
         raise PermissionDenied("Only the owner can remove administrators.")
+
+    Activity.objects.create(
+        model='member',
+        model_id=target_member.id,
+        agency=agency,
+        user=current_user,
+        summary=f"Removed member {target_member.user.email} from agency"
+    )
 
     # Delete membership record to allow re-invitation without unique constraint issues
     target_member.delete()
@@ -175,6 +192,14 @@ def invite_agency_member(agency: Agency, current_user: User, email: str, role: s
             fail_silently=False
         )
 
+    Activity.objects.create(
+        model='member',
+        model_id=member.id,
+        agency=agency,
+        user=current_user,
+        summary=f"Invited {email} to agency as {role}"
+    )
+
     return member
 
 def accept_agency_invitation(token: str) -> AgencyMember:
@@ -200,4 +225,13 @@ def accept_agency_invitation(token: str) -> AgencyMember:
 
     member.invitation_status = 'accepted'
     member.save()
+
+    Activity.objects.create(
+        model='member',
+        model_id=member.id,
+        agency=member.agency,
+        user=member.user,
+        summary=f"Accepted agency invitation"
+    )
+
     return member

@@ -24,6 +24,7 @@ from .candidates import (
     get_agency_candidate_by_id,
     get_agency_candidate_counts,
     get_candidate_notes,
+    get_candidate_activities,
     add_note_to_candidate,
     get_job_candidates,
     shortlist_candidate,

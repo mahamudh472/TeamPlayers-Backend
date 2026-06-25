@@ -1,5 +1,5 @@
 from django.db.models import Q, QuerySet
-from apps.agency.models import Agency, Client, Note, ClientActivity
+from apps.agency.models import Agency, Client, Note, Activity
 from apps.accounts.models import User
 from rest_framework.exceptions import NotFound
 
@@ -54,9 +54,17 @@ def create_manual_client(agency: Agency, client_data: dict, user=None) -> Client
             agency=agency
         )
         
+    Activity.objects.create(
+        model='client',
+        model_id=client.id,
+        agency=agency,
+        user=user,
+        summary=f"Created client {client.company}"
+    )
+
     return client
 
-def update_client(agency: Agency, client: Client, client_data: dict) -> Client:
+def update_client(agency: Agency, client: Client, client_data: dict, user=None) -> Client:
     """
     Updates a client manually with the given data.
     """
@@ -64,16 +72,25 @@ def update_client(agency: Agency, client: Client, client_data: dict) -> Client:
         setattr(client, field, value)
     client.save()
         
+    Activity.objects.create(
+        model='client',
+        model_id=client.id,
+        agency=agency,
+        user=user,
+        summary=f"Updated client information for {client.company}"
+    )
+
     return client
 
-def get_client_activities(agency: Agency, client_id: int) -> QuerySet[ClientActivity]:
+def get_client_activities(agency: Agency, client_id: int) -> QuerySet[Activity]:
     """
     Returns activities associated with the client for the agency.
     """
     client = get_agency_client_by_id(agency, client_id)
-    return ClientActivity.objects.filter(
+    return Activity.objects.filter(
         agency=agency,
-        client=client
+        model='client',
+        model_id=client.id
     ).select_related('user').order_by('-created_at')
 
 def get_client_notes(agency: Agency, client_id: int) -> QuerySet[Note]:

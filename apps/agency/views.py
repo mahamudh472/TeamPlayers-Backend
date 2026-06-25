@@ -21,6 +21,7 @@ from apps.agency.services import (
     get_agency_candidate_by_id,
     get_agency_candidate_counts,
     get_candidate_notes,
+    get_candidate_activities,
     add_note_to_candidate,
     get_job_candidates,
     shortlist_candidate,
@@ -55,6 +56,7 @@ from apps.agency.serializers import (
     ClientDetailSerializer,
     JobSerializer,
     ClientActivitySerializer,
+    CandidateActivitySerializer,
     CandidateMinSerializer,
     CandidateDetailSerializer,
     JobCandidateSerializer,
@@ -248,7 +250,7 @@ class LeadChangeStatusView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
             
-        lead = update_lead_status(agency, pk, status_val)
+        lead = update_lead_status(agency, pk, status_val, user=request.user)
         serializer = LeadSerializer(lead)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -378,7 +380,7 @@ class ClientDetailView(APIView):
         serializer = ClientDetailSerializer(client, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         
-        updated_client = update_client(agency, client, serializer.validated_data)
+        updated_client = update_client(agency, client, serializer.validated_data, user=request.user)
         return Response({"message": "Client updated successfully"}, status=status.HTTP_200_OK)
 
 
@@ -442,7 +444,7 @@ class JobListView(APIView):
         serializer = JobSerializer(data=request.data, context={'agency': agency})
         serializer.is_valid(raise_exception=True)
 
-        job = create_agency_job(agency, serializer.validated_data)
+        job = create_agency_job(agency, serializer.validated_data, user=request.user)
         response_serializer = JobSerializer(job)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -478,7 +480,7 @@ class JobDetailView(APIView):
         serializer = JobSerializer(job, data=request.data, partial=True, context={'agency': agency})
         serializer.is_valid(raise_exception=True)
 
-        updated_job = update_agency_job(agency, job, serializer.validated_data)
+        updated_job = update_agency_job(agency, job, serializer.validated_data, user=request.user)
         response_serializer = JobSerializer(updated_job)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
@@ -518,6 +520,22 @@ class ClientActivityListView(APIView):
 
         activities = get_client_activities(agency, pk)
         serializer = ClientActivitySerializer(activities, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CandidateActivityListView(APIView):
+    """
+    API endpoint to list activities for a specific candidate.
+    Requires header: X-Agency-ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        activities = get_candidate_activities(agency, pk)
+        serializer = CandidateActivitySerializer(activities, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -612,7 +630,7 @@ class CandidateListView(APIView):
         cv_file = serializer.validated_data['file']
 
         from apps.agency.services.candidates import create_candidate_from_resume
-        candidate = create_candidate_from_resume(agency, job, cv_file)
+        candidate = create_candidate_from_resume(agency, job, cv_file, user=request.user)
 
         response_serializer = CandidateDetailSerializer(candidate, context={'request': request})
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -700,7 +718,7 @@ class CandidateShortlistView(APIView):
         agency_id = request.agency_id
         agency = get_verified_agency(request.user, agency_id)
         
-        candidate = shortlist_candidate(agency, pk)
+        candidate = shortlist_candidate(agency, pk, user=request.user)
         serializer = CandidateDetailSerializer(candidate, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -791,7 +809,7 @@ class CandidateAcceptView(APIView):
         agency_id = request.agency_id
         agency = get_verified_agency(request.user, agency_id)
 
-        candidate = accept_candidate(agency, pk)
+        candidate = accept_candidate(agency, pk, user=request.user)
         serializer = CandidateDetailSerializer(candidate, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -808,7 +826,7 @@ class CandidateRejectView(APIView):
         agency_id = request.agency_id
         agency = get_verified_agency(request.user, agency_id)
 
-        candidate = reject_candidate(agency, pk)
+        candidate = reject_candidate(agency, pk, user=request.user)
         serializer = CandidateDetailSerializer(candidate, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -1073,7 +1091,7 @@ class AgencyInfoView(APIView):
         serializer = AgencySerializer(agency, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         
-        updated_agency = update_agency_info(agency, serializer.validated_data)
+        updated_agency = update_agency_info(agency, serializer.validated_data, user=request.user)
         response_serializer = AgencySerializer(updated_agency, context={'request': request})
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 

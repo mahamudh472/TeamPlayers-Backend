@@ -1,5 +1,5 @@
 from django.db.models import Q, QuerySet
-from apps.agency.models import Agency, Client, Job
+from apps.agency.models import Agency, Client, Job, Activity
 from rest_framework.exceptions import NotFound
 
 def get_agency_jobs(agency: Agency, search_query: str = None) -> QuerySet[Job]:
@@ -25,7 +25,7 @@ def get_agency_job_by_id(agency: Agency, job_id: int) -> Job:
     except (Job.DoesNotExist, ValueError):
         raise NotFound("Job not found")
 
-def create_agency_job(agency: Agency, job_data: dict) -> Job:
+def create_agency_job(agency: Agency, job_data: dict, user=None) -> Job:
     """
     Creates a new job for the given agency.
     """
@@ -42,15 +42,33 @@ def create_agency_job(agency: Agency, job_data: dict) -> Job:
         status=job_data.get('status', 'open'),
         description_file=job_data.get('description_file')
     )
+
+    Activity.objects.create(
+        model='job',
+        model_id=job.id,
+        agency=agency,
+        user=user,
+        summary=f"Created job {job.title}"
+    )
+
     return job
 
-def update_agency_job(agency: Agency, job: Job, job_data: dict) -> Job:
+def update_agency_job(agency: Agency, job: Job, job_data: dict, user=None) -> Job:
     """
     Updates a job manually with the given data.
     """
     for field, value in job_data.items():
         setattr(job, field, value)
     job.save()
+
+    Activity.objects.create(
+        model='job',
+        model_id=job.id,
+        agency=agency,
+        user=user,
+        summary=f"Updated job details for {job.title}"
+    )
+
     return job
 
 def get_client_jobs(agency: Agency, client_id: int, status_filter: str = None) -> QuerySet[Job]:

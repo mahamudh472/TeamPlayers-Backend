@@ -1,7 +1,7 @@
 from decimal import Decimal
 from rest_framework.exceptions import ValidationError
 from apps.accounts.models import User
-from apps.agency.models import Agency, ClientActivity
+from apps.agency.models import Agency, Activity
 from apps.agency.services import get_agency_client_by_id
 from apps.finance.models import ClientRevenue
 
@@ -22,8 +22,9 @@ def add_client_revenue(agency: Agency, user: User, client_id: int, amount: Decim
         added_by=user
     )
 
-    ClientActivity.objects.create(
-        client=client,
+    Activity.objects.create(
+        model='client',
+        model_id=client.id,
         agency=agency,
         user=user,
         summary=f"Added revenue of {amount}"

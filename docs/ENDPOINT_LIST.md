@@ -55,6 +55,7 @@ This index lists available API endpoints and links to the per-app reference page
 - [GET  /api/v1/agency/candidates/<id>/](endpoints/agency/candidates.md) — Retrieve details of a single candidate (authenticated)
 - [GET  /api/v1/agency/candidates/<id>/notes/](endpoints/agency/candidates.md) — Retrieve notes for a single candidate (authenticated)
 - [POST /api/v1/agency/candidates/<id>/notes/](endpoints/agency/candidates.md) — Create a note for a single candidate (authenticated)
+- [GET  /api/v1/agency/candidates/<id>/activities/](endpoints/agency/candidates.md) — Retrieve activity history for a specific candidate (authenticated)
 - [POST /api/v1/agency/candidates/<id>/shortlist/](endpoints/agency/candidates.md) — Shortlist a candidate (authenticated)
 - [POST /api/v1/agency/candidates/<id>/meeting/](endpoints/agency/candidates.md) — Create Zoom meeting and invite candidate (authenticated)
 - [POST /api/v1/agency/candidates/<id>/offer/](endpoints/agency/candidates.md) — Send offer and create placement (authenticated)

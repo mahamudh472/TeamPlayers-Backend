@@ -90,6 +90,33 @@ class Note(models.Model):
     def __str__(self):
         return self.content if self.content else f"Note {self.id}"
 
+
+class Activity(models.Model):
+    summary = models.TextField(blank=True, null=True)
+    model = models.CharField(max_length=20, choices=[
+        ('client', 'Client'),
+        ('candidate', 'Candidate'),
+        ('lead', 'Lead'),
+        ('job', 'Job'),
+        ('member', 'Member'),
+        ('placement', 'Placement'),
+        ('agency', 'Agency'),
+    ])
+    model_id = models.PositiveIntegerField(null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='activities')
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='activities')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Activity"
+        verbose_name_plural = "Activities"
+
+    def __str__(self):
+        return self.summary if self.summary else f"Activity {self.id}"
+
+
 class Client(models.Model):
     agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='clients')
     lead = models.ForeignKey(Leads, on_delete=models.CASCADE, related_name='clients', blank=True, null=True)
@@ -130,21 +157,6 @@ class ClientAISummary(models.Model):
 
     def __str__(self):
         return f"Client AI Summary {self.id} for {self.client.company}"
-
-class ClientActivity(models.Model):
-    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='activities')
-    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='client_activities')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='client_activities')
-    summary = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Client Activity"
-        verbose_name_plural = "Client Activities"
-
-    def __str__(self):
-        return self.summary if self.summary else f"Client Activity {self.id}"   
 
 class Job(models.Model):
     agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='jobs')
@@ -240,20 +252,6 @@ class CandidateAIAnalysis(models.Model):
         return f"Candidate AI Analysis {self.id} for {self.candidate.name}"
 
 
-class CandidateActivity(models.Model):
-    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='activities')
-    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='candidate_activities')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='candidate_activities')
-    summary = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Candidate Activity"
-        verbose_name_plural = "Candidate Activities"
-
-    def __str__(self):
-        return self.summary if self.summary else f"Candidate Activity {self.id}"
 
 class CandidateMeeting(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='meetings')

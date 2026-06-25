@@ -1,5 +1,5 @@
 from django.db.models import Q, QuerySet, Count
-from apps.agency.models import Agency, Candidate, Note
+from apps.agency.models import Agency, Candidate, Note, Activity
 from apps.accounts.models import User
 from rest_framework.exceptions import NotFound
 
@@ -55,6 +55,17 @@ def get_candidate_notes(agency: Agency, candidate_id: int) -> QuerySet[Note]:
         model_id=candidate.id
     ).select_related('user').order_by('-created_at')
 
+def get_candidate_activities(agency: Agency, candidate_id: int) -> QuerySet[Activity]:
+    """
+    Returns activities associated with the candidate for the agency.
+    """
+    candidate = get_agency_candidate_by_id(agency, candidate_id)
+    return Activity.objects.filter(
+        agency=agency,
+        model='candidate',
+        model_id=candidate.id
+    ).select_related('user').order_by('-created_at')
+
 def add_note_to_candidate(agency: Agency, user: User, candidate_id: int, content: str) -> Note:
     """
     Verifies candidate existence and adds a note to it.
@@ -78,7 +89,7 @@ def get_job_candidates(agency: Agency, job_id: int) -> QuerySet[Candidate]:
     return Candidate.objects.filter(agency=agency, job=job).prefetch_related('ai_analysis').order_by('-applied_at')
 
 
-def shortlist_candidate(agency: Agency, candidate_id: int) -> Candidate:
+def shortlist_candidate(agency: Agency, candidate_id: int, user=None) -> Candidate:
     """
     If the candidate status is new, make the status shortlisted.
     """
@@ -89,6 +100,15 @@ def shortlist_candidate(agency: Agency, candidate_id: int) -> Candidate:
     
     candidate.status = 'shortlisted'
     candidate.save()
+
+    Activity.objects.create(
+        model='candidate',
+        model_id=candidate.id,
+        agency=agency,
+        user=user,
+        summary=f"Shortlisted candidate {candidate.name} for job {candidate.job.title}"
+    )
+
     return candidate
 
 
@@ -189,6 +209,14 @@ def schedule_candidate_interview(agency: Agency, recruiter: User, candidate_id: 
     candidate.status = 'interviewing'
     candidate.save()
 
+    Activity.objects.create(
+        model='candidate',
+        model_id=candidate.id,
+        agency=agency,
+        user=recruiter,
+        summary=f"Scheduled interview for candidate {candidate.name} on {meeting_time.strftime('%Y-%m-%d %H:%M:%S')} UTC"
+    )
+
     return candidate, meeting, zoom_error_details
 
 
@@ -243,10 +271,18 @@ def make_candidate_offer(agency: Agency, recruiter: User, candidate_id: int, sal
     candidate.status = 'offered'
     candidate.save()
 
+    Activity.objects.create(
+        model='candidate',
+        model_id=candidate.id,
+        agency=agency,
+        user=recruiter,
+        summary=f"Sent job offer to candidate {candidate.name} with salary {salary}"
+    )
+
     return candidate, placement
 
 
-def accept_candidate(agency: Agency, candidate_id: int) -> Candidate:
+def accept_candidate(agency: Agency, candidate_id: int, user=None) -> Candidate:
     """
     Sets candidate status to accepted and updates related placement status to 'placed'.
     """
@@ -257,10 +293,18 @@ def accept_candidate(agency: Agency, candidate_id: int) -> Candidate:
     from apps.agency.models import Placement
     Placement.objects.filter(candidate=candidate).update(status='placed')
 
+    Activity.objects.create(
+        model='candidate',
+        model_id=candidate.id,
+        agency=agency,
+        user=user,
+        summary=f"Candidate {candidate.name} accepted the job offer"
+    )
+
     return candidate
 
 
-def reject_candidate(agency: Agency, candidate_id: int) -> Candidate:
+def reject_candidate(agency: Agency, candidate_id: int, user=None) -> Candidate:
     """
     Sets candidate status to rejected and updates related placement status to 'not_placed'.
     """
@@ -270,6 +314,14 @@ def reject_candidate(agency: Agency, candidate_id: int) -> Candidate:
 
     from apps.agency.models import Placement
     Placement.objects.filter(candidate=candidate).update(status='not_placed')
+
+    Activity.objects.create(
+        model='candidate',
+        model_id=candidate.id,
+        agency=agency,
+        user=user,
+        summary=f"Candidate {candidate.name} was rejected / declined the offer"
+    )
 
     return candidate
 
@@ -284,7 +336,7 @@ def save_cv_file(file) -> str:
     return file_path
 
 
-def create_candidate_from_resume(agency: Agency, job, cv_file) -> Candidate:
+def create_candidate_from_resume(agency: Agency, job, cv_file, user=None) -> Candidate:
     """
     Saves the uploaded CV file, parses it using the AI Candidate Parser,
     creates the Candidate object, scores the candidate against the Job,
@@ -410,6 +462,14 @@ def create_candidate_from_resume(agency: Agency, job, cv_file) -> Candidate:
             location_match=0.0,
             overall_match_percentage=0.0
         )
+
+    Activity.objects.create(
+        model='candidate',
+        model_id=candidate.id,
+        agency=agency,
+        user=user,
+        summary=f"Uploaded CV and created candidate profile for {candidate.name}"
+    )
 
     return candidate
 
