@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.agency.models import Agency, AgencyMember, Leads, Note, Client, ClientAISummary, Job, ClientActivity, Candidate, CandidateAIAnalysis, Placement, CandidateMeeting
+from apps.agency.models import Agency, AgencyMember, Leads, Note, Client, ClientAISummary, Job, ClientActivity, Candidate, CandidateAIAnalysis, Placement, CandidateMeeting, LeadGenerationSession
 from apps.accounts.models import User
 
 class UserAgencySerializer(serializers.ModelSerializer):
@@ -569,7 +569,26 @@ class InviteMemberSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=[('admin', 'Admin'), ('recruiter', 'Recruiter')])
 
 
+class LeadGenerationSerializer(serializers.Serializer):
+    country = serializers.CharField(max_length=100, required=True)
+    industry = serializers.CharField(max_length=100, required=True)
+    company_size = serializers.CharField(max_length=100, required=True)
+    hiring_activity = serializers.CharField(max_length=100, required=True)
 
 
-
-
+class LeadGenerationSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LeadGenerationSession
+        fields = [
+            'id',
+            'agency',
+            'user',
+            'country',
+            'industry',
+            'company_size',
+            'hiring_activity',
+            'status',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = fields

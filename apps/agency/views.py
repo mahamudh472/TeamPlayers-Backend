@@ -33,7 +33,9 @@ from apps.agency.services import (
     get_agency_placements,
     get_agency_placement_counts,
     get_dashboard_data,
-    get_analytics_data
+    get_analytics_data,
+    create_lead_generation_session,
+    trigger_n8n_lead_generation
 )
 from apps.agency.services.leads import (
     get_agency_leads,
@@ -65,7 +67,9 @@ from apps.agency.serializers import (
     PublicJobDetailSerializer,
     CVUploadSerializer,
     InterviewListSerializer,
-    CalendarMeetingSerializer
+    CalendarMeetingSerializer,
+    LeadGenerationSerializer,
+    LeadGenerationSessionSerializer
 )
 from apps.agency.services.jobs import get_client_jobs
 from apps.agency.services.clients import (
@@ -247,6 +251,33 @@ class LeadChangeStatusView(APIView):
         lead = update_lead_status(agency, pk, status_val)
         serializer = LeadSerializer(lead)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class LeadGenerationView(APIView):
+    """
+    API endpoint to trigger AI lead generation.
+    Creates a LeadGenerationSession object and sends a request to n8n webhook.
+    Requires header: X-Agency-ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        serializer = LeadGenerationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        session = create_lead_generation_session(
+            agency=agency,
+            user=request.user,
+            **serializer.validated_data
+        )
+
+        trigger_n8n_lead_generation(session)
+
+        response_serializer = LeadGenerationSessionSerializer(session)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class ClientListView(APIView):

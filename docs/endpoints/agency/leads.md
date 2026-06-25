@@ -9,6 +9,7 @@ Back to index: [ENDPOINT_LIST.md](../../ENDPOINT_LIST.md)
 - POST `/api/v1/agency/leads/<id>/notes/` — Add a new note for a lead.
 - PATCH `/api/v1/agency/leads/<id>/status/` — Change a lead's status.
 - POST `/api/v1/agency/webhooks/leads/` — Bulk lead ingestion webhook (unauthenticated, secret-verified).
+- POST `/api/v1/agency/leads/generate/` — Trigger AI lead generation by sending criteria to the n8n workflow.
 
 ---
 
@@ -322,3 +323,60 @@ Error responses:
   "detail": "Lead not found"
 }
 ```
+
+---
+
+## POST /api/v1/agency/leads/generate/
+
+Description: Trigger AI lead generation. Creates a `LeadGenerationSession` object and POSTs the details to the n8n workflow webhook defined in settings.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Request JSON:
+
+```json
+{
+  "country": "Germany",
+  "industry": "Automotive",
+  "company_size": "50-200",
+  "hiring_activity": "active"
+}
+```
+
+Success response (201):
+
+```json
+{
+  "id": "e4f7a783-6d04-4cbb-bd12-70b92db2c91c",
+  "agency": 1,
+  "user": "5313d494-b152-4752-95b6-6d2745cf0249",
+  "country": "Germany",
+  "industry": "Automotive",
+  "company_size": "50-200",
+  "hiring_activity": "active",
+  "status": "processing",
+  "created_at": "2026-06-25T10:57:00.123456Z",
+  "updated_at": "2026-06-25T10:57:00.654321Z"
+}
+```
+
+Error responses:
+
+- 400: Validation error on input fields
+```json
+{
+  "country": ["This field is required."]
+}
+```
+
+- 400: Configuration error (N8N_WEBHOOK_URL is not set)
+```json
+{
+  "detail": "Lead generation service is not configured (missing N8N_WEBHOOK_URL)."
+}
+```
+

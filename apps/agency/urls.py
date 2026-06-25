@@ -7,6 +7,7 @@ from .views import (
     LeadAddNoteView,
     LeadWebhookIngestView,
     LeadChangeStatusView,
+    LeadGenerationView,
     ClientListView,
     ClientDetailView,
     JobListView,
@@ -46,6 +47,7 @@ urlpatterns = [
     path('leads/<int:pk>/', LeadDetailView.as_view(), name='lead_detail'),
     path('leads/<int:pk>/notes/', LeadAddNoteView.as_view(), name='lead_add_note'),
     path('leads/<int:pk>/status/', LeadChangeStatusView.as_view(), name='lead_change_status'),
+    path('leads/generate/', LeadGenerationView.as_view(), name='lead_generation'),
     path('webhooks/leads/', LeadWebhookIngestView.as_view(), name='lead_webhook_ingest'),
     
     path('interviews/', InterviewListView.as_view(), name='interview_list'),

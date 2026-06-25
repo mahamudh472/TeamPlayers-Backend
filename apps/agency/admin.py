@@ -2,7 +2,7 @@ from django.contrib import admin
 from unfold.admin import ModelAdmin
 from .models import (
     Agency, AgencyMember, Client, ClientActivity, ClientAISummary,
-    Candidate, CandidateActivity, CandidateAIAnalysis
+    Candidate, CandidateActivity, CandidateAIAnalysis, LeadGenerationSession
 )
 
 @admin.register(Agency)
@@ -51,4 +51,11 @@ class CandidateActivityAdmin(ModelAdmin):
 class CandidateAIAnalysisAdmin(ModelAdmin):
     list_display = ('id', 'candidate', 'summary', 'created_at', 'updated_at')
     search_fields = ('candidate__name', 'summary')
+    ordering = ('-created_at',)
+
+
+@admin.register(LeadGenerationSession)
+class LeadGenerationSessionAdmin(ModelAdmin):
+    list_display = ('id', 'agency', 'user', 'country', 'industry', 'company_size', 'hiring_activity', 'status', 'created_at')
+    search_fields = ('agency__name', 'user__email', 'country', 'industry', 'company_size', 'hiring_activity', 'status')
     ordering = ('-created_at',)

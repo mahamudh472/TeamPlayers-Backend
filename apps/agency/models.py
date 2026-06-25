@@ -1,3 +1,4 @@
+import uuid
 from email.policy import default
 from django.db import models
 from apps.accounts.models import User
@@ -300,4 +301,33 @@ class Placement(models.Model):
 
     def __str__(self):
         return f"Placement {self.id} for {self.candidate.name}"
-    
+
+
+class LeadGenerationSession(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='lead_generation_sessions')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lead_generation_sessions')
+
+    country = models.CharField(max_length=100, blank=True, null=True)
+    industry = models.CharField(max_length=100, blank=True, null=True)
+    company_size = models.CharField(max_length=100, blank=True, null=True)
+    hiring_activity = models.CharField(max_length=100, blank=True, null=True)
+
+    status = models.CharField(max_length=20, choices=[
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed')
+    ], default='pending')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'lead_generation_sessions'
+        verbose_name = 'Lead Generation Session'
+        verbose_name_plural = 'Lead Generation Sessions'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Session {self.id} ({self.status})"
