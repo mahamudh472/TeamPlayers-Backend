@@ -85,5 +85,13 @@ This index lists available API endpoints and links to the per-app reference page
 
 ---
 
+### Main
+
+- [POST /api/v1/main/contact/](endpoints/main.md) — Post/create a contact message (public)
+- [GET  /api/v1/main/search/](endpoints/main.md) — Search dashboard data across leads, candidates, clients, and jobs (authenticated)
+
+---
+
 Add other apps here as their endpoint pages are created under `docs/endpoints/`.
+
 

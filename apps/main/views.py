@@ -1,9 +1,10 @@
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from apps.main.serializers import ContactMessageSerializer
 from apps.main.services import create_contact_message, search
+from apps.agency.services import get_verified_agency
 
 class ContactMessageCreateView(APIView):
     """
@@ -21,15 +22,21 @@ class ContactMessageCreateView(APIView):
 
 class DashboardSearchView(APIView):
     """
-    API endpoint to search for dashboard data.
+    API endpoint to search for dashboard data (leads, candidates, clients, jobs)
+    belonging to the active agency of the logged-in user.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         query = request.query_params.get('query', None)
+        agency_id = request.agency_id
+        
+        # Verify the user has access to the agency
+        agency = get_verified_agency(request.user, agency_id)
 
         if query:
-            results = search.perform_search(query)
+            results = search.perform_search(query, agency)
             return Response(results, status=status.HTTP_200_OK)
         return Response({"error": "Query parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
+
 
