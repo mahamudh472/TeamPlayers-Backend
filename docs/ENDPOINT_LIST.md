@@ -92,6 +92,16 @@ This index lists available API endpoints and links to the per-app reference page
 
 ---
 
+### Notifications
+
+- [GET  /api/v1/notifications/](endpoints/notifications.md) — List notifications (paginated) (authenticated)
+- [POST /api/v1/notifications/<id>/read/](endpoints/notifications.md) — Mark a specific notification as read (authenticated)
+- [POST /api/v1/notifications/read-all/](endpoints/notifications.md) — Mark all notifications as read (authenticated)
+- [POST /api/v1/notifications/send-test/](endpoints/notifications.md) — Trigger an instant test notification (authenticated)
+- [WS   /ws/notifications/](endpoints/notifications.md) — Connect to WebSocket for real-time notifications (authenticated via query param token)
+
+---
+
 Add other apps here as their endpoint pages are created under `docs/endpoints/`.
 
 

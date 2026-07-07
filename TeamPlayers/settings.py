@@ -92,6 +92,7 @@ CORS_ALLOW_HEADERS = [
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'unfold',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -113,6 +114,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -145,6 +147,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'TeamPlayers.wsgi.application'
+ASGI_APPLICATION = 'TeamPlayers.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 
 
 # Database

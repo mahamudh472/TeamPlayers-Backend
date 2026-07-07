@@ -42,3 +42,5 @@ PyMuPDF
 python-docx
 tqdm
 
+channels==4.3.2
+daphne==4.2.2
