@@ -53,13 +53,21 @@ services:
       - media_volume:/app/media
 
   nginx:
-    image: nginx:alpine
+    build:
+      context: ./nginx
     container_name: teamplayers_nginx
     restart: always
     ports:
       - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN_NAME=${DOMAIN_NAME}
+    entrypoint: /nginx_entrypoint.sh
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/nginx_entrypoint.sh:/nginx_entrypoint.sh:ro
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - certbot_conf:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot:ro
       - static_volume:/app/staticfiles:ro
       - media_volume:/app/media:ro
     depends_on:
@@ -75,8 +83,47 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
+  certbot:
+    image: certbot/certbot:latest
+    container_name: teamplayers_certbot
+    restart: always
+    environment:
+      - DOMAIN_NAME=${DOMAIN_NAME}
+      - EMAIL=${CERTBOT_EMAIL}
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c "
+      trap exit TERM;
+      while :; do
+        if [ ! -f /etc/letsencrypt/live/$$DOMAIN_NAME/privkey.pem ]; then
+          echo 'Waiting for Nginx to generate bootstrap certificates...';
+          sleep 5;
+          continue;
+        fi;
+        if [ -f /etc/letsencrypt/live/$$DOMAIN_NAME/is_dummy ]; then
+          echo 'Dummy certificate detected. Requesting Lets Encrypt certificate...';
+          certbot certonly --webroot -w /var/www/certbot --email $$EMAIL -d $$DOMAIN_NAME --agree-tos --no-eff-email --non-interactive --force-renewal;
+          if [ $$? -eq 0 ]; then
+            echo 'Certificate requested successfully. Deleting dummy flag...';
+            rm -f /etc/letsencrypt/live/$$DOMAIN_NAME/is_dummy;
+          else
+            echo 'Certificate request failed. Retrying in 1 minute...';
+            sleep 60;
+            continue;
+          fi;
+        else
+          echo 'SSL certificates are active. Running check/renewal...';
+          certbot renew;
+        fi;
+        sleep 12h & wait $$!;
+      done;"
+
 volumes:
   postgres_data:
   redis_data:
   static_volume:
   media_volume:
+  certbot_conf:
+  certbot_webroot:
