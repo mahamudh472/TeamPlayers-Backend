@@ -103,11 +103,12 @@ services:
           continue;
         fi;
         if [ -f /etc/letsencrypt/live/$$DOMAIN_NAME/is_dummy ]; then
-          echo 'Dummy certificate detected. Requesting Lets Encrypt certificate...';
-          certbot certonly --webroot -w /var/www/certbot --email $$EMAIL -d $$DOMAIN_NAME --agree-tos --no-eff-email --non-interactive --force-renewal;
+          echo 'Dummy certificate detected. Cleaning up dummy files and requesting Lets Encrypt certificate...';
+          rm -rf /etc/letsencrypt/live/$$DOMAIN_NAME
+          rm -rf /etc/letsencrypt/archive/$$DOMAIN_NAME
+          certbot certonly --webroot -w /var/www/certbot --cert-name $$DOMAIN_NAME --email $$EMAIL -d $$DOMAIN_NAME --agree-tos --no-eff-email --non-interactive --force-renewal;
           if [ $$? -eq 0 ]; then
-            echo 'Certificate requested successfully. Deleting dummy flag...';
-            rm -f /etc/letsencrypt/live/$$DOMAIN_NAME/is_dummy;
+            echo 'Certificate requested successfully.';
           else
             echo 'Certificate request failed. Retrying in 1 minute...';
             sleep 60;
