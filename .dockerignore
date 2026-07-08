@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+
+# Databases
+*.sqlite3
+db.sqlite3
+
+# Local configuration and keys
+.env
+.env.*
+*.pem
+*.key
+*.pub
+
+# IDEs and metadata
+.vscode/
+.idea/
+.codex/
+.agents/
+.gemini/
+
+# Project generated folders
+logs/
+media/
+staticfiles/
+temp/
