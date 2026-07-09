@@ -1,0 +1,245 @@
+/* Import Google Fonts - Inter and Outfit */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
+/* Apply premium font family globally */
+body, html, input, button, select, textarea {
+    font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* Override sidebar background to match TeamPlayers dark theme */
+aside,
+aside.fixed,
+[data-testid="sidebar"],
+.unfold-sidebar {
+    background-color: #17212d !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Sidebar header & divider styling */
+aside h2,
+aside .text-xs.font-semibold,
+aside [class*="border-t"] {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+aside h2,
+aside .text-xs.font-semibold,
+aside span[class*="text-gray-"],
+aside .font-bold.text-gray-900 {
+    color: rgba(255, 255, 255, 0.4) !important;
+    text-transform: uppercase !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.05em !important;
+}
+
+/* Sidebar logo section */
+aside .flex.items-center.h-16,
+aside [class*="border-b"] {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Sidebar link items style */
+aside a,
+aside button,
+aside nav a,
+aside nav button,
+aside li a {
+    color: #94a3b8 !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    border-radius: 8px !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    background-color: transparent !important;
+}
+
+/* Hover state for links */
+aside a:hover,
+aside button:hover,
+aside nav a:hover,
+aside nav button:hover,
+aside li a:hover {
+    color: #ffffff !important;
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Icons inside sidebar */
+aside a svg,
+aside button svg,
+aside nav a svg,
+aside nav button svg,
+aside li a svg {
+    color: #64748b !important;
+    transition: all 0.2s ease !important;
+}
+
+aside a:hover svg,
+aside button:hover svg,
+aside nav a:hover svg,
+aside nav button:hover svg {
+    color: #ffffff !important;
+}
+
+/* Active Sidebar Item Style (matches the cyan-teal gradient in user front view) */
+aside a[class*="bg-primary-"],
+aside a[class*="text-primary-"],
+aside a.active,
+aside [class*="bg-primary-500"],
+aside a[class*="bg-primary-50"],
+aside a[class*="bg-primary-100"] {
+    background-color: #0d9488 !important;
+    background-image: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.25) !important;
+}
+
+/* Icons inside active sidebar items */
+aside a[class*="bg-primary-"] svg,
+aside a[class*="text-primary-"] svg,
+aside a.active svg,
+aside [class*="bg-primary-500"] svg,
+aside a[class*="bg-primary-50"] svg,
+aside a[class*="bg-primary-100"] svg {
+    color: #ffffff !important;
+    fill: none !important; /* Keep outline icons clean */
+}
+
+/* User profile dropdown in sidebar top/bottom */
+aside .border-t.border-gray-200,
+aside [class*="border-t border-gray-"] {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Custom styling for main header/topbar */
+header,
+.unfold-header {
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+/* Search box styling in header to match */
+header input[type="search"],
+header input[placeholder*="Search"] {
+    background-color: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    color: #1e293b !important;
+}
+
+/* Stat cards styling to match premium cards */
+.card,
+[class*="bg-white rounded-lg shadow"] {
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+    border-radius: 12px !important;
+}
+
+/* Dashboard layout grid container */
+.dashboard-grid-kpi {
+    display: grid !important;
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    gap: 1.5rem !important; /* 24px gap */
+}
+
+@media (min-width: 768px) {
+    .dashboard-grid-kpi {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (min-width: 1024px) {
+    .dashboard-grid-kpi {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+}
+
+/* Charts layout grid container */
+.dashboard-grid-charts {
+    display: grid !important;
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    gap: 2rem !important; /* 32px gap */
+    margin-top: 2rem !important;
+}
+
+@media (min-width: 1024px) {
+    .dashboard-grid-charts {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+/* Custom dashboard container spacing */
+.dashboard-container {
+    padding: 1.5rem 1rem !important;
+    max-width: 80rem !important; /* 1280px */
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+@media (min-width: 768px) {
+    .dashboard-container {
+        padding: 2rem 2rem !important;
+    }
+}
+
+.dashboard-header {
+    margin-bottom: 2rem !important;
+}
+
+.dashboard-card-kpi {
+    background-color: #ffffff !important;
+    padding: 1.5rem !important;
+    border-radius: 12px !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    height: 10rem !important; /* 160px */
+    transition: all 0.2s ease-in-out !important;
+}
+
+.dashboard-card-kpi:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+}
+
+.dashboard-card-chart {
+    background-color: #ffffff !important;
+    padding: 1.5rem !important;
+    border-radius: 12px !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    gap: 1.5rem !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+.dashboard-card-chart:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+}
+
+
+/* Set general action buttons to match the new teal primary */
+.button-primary,
+button[type="submit"],
+[class*="bg-primary-600"],
+[class*="bg-primary-500"],
+[class*="bg-primary-"],
+.bg-primary-600,
+.bg-primary-500 {
+    background-color: #0d9488 !important;
+    border-color: #0d9488 !important;
+    color: #ffffff !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+.button-primary:hover,
+button[type="submit"]:hover,
+[class*="bg-primary-600"]:hover,
+[class*="bg-primary-500"]:hover,
+.bg-primary-600:hover,
+.bg-primary-500:hover {
+    background-color: #0f766e !important;
+    border-color: #0f766e !important;
+}
