@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('', views.IntegrationListView.as_view(), name='integration_list'),
+    path('available/', views.AvailableIntegrationListView.as_view(), name='available_integrations'),
     path('zoom/connect/', views.ZoomConnectView.as_view(), name='zoom_connect'),
     path('zoom/callback/', views.ZoomCallbackView.as_view(), name='zoom_callback'),
     path('zoom/disconnect/', views.ZoomDisconnectView.as_view(), name='zoom_disconnect'),

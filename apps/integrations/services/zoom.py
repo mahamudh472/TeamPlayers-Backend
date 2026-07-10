@@ -30,6 +30,7 @@ def get_zoom_auth_url(state=''):
         'response_type': 'code',
         'client_id': settings.ZOOM_CLIENT_ID,
         'redirect_uri': settings.ZOOM_REDIRECT_URI,
+        'scope': 'meeting:write:meeting user:read:user',
     }
     if state:
         params['state'] = state

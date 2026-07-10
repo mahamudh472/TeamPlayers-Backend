@@ -10,13 +10,18 @@ from rest_framework.response import Response
 
 from apps.agency.models import Agency
 from .models import Integration
-from .serializers import IntegrationSerializer, ZoomMeetingCreateSerializer
+from .serializers import (
+    IntegrationSerializer,
+    ZoomMeetingCreateSerializer,
+    AvailableIntegrationSerializer,
+)
 from .services import (
     get_zoom_auth_url,
     exchange_zoom_code,
     store_zoom_tokens,
     create_zoom_meeting,
     disconnect_zoom,
+    get_available_integrations,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,6 +46,26 @@ class IntegrationListView(GenericAPIView):
         )
         serializer = self.get_serializer(integrations, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AvailableIntegrationListView(GenericAPIView):
+    """List all available integrations and connection status for the current user + agency."""
+
+    serializer_class = AvailableIntegrationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        agency_id = request.agency_id
+        if not agency_id:
+            return Response(
+                {"error": "X-Agency-ID header is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        data = get_available_integrations(request.user, agency_id)
+        serializer = self.get_serializer(data, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 class ZoomConnectView(GenericAPIView):

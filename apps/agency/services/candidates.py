@@ -145,6 +145,14 @@ def schedule_candidate_interview(agency: Agency, recruiter: User, candidate_id: 
     meeting_link = None
     zoom_error_details = None
 
+    from rest_framework.exceptions import APIException
+    from rest_framework import status
+
+    class ServiceUnavailable(APIException):
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        default_detail = 'Zoom service is temporarily unavailable. Please try again.'
+        default_code = 'service_unavailable'
+
     try:
         meeting_data = create_zoom_meeting(
             zoom_token=zoom_token,
@@ -155,7 +163,7 @@ def schedule_candidate_interview(agency: Agency, recruiter: User, candidate_id: 
         )
         meeting_link = meeting_data.get('join_url')
     except Exception as e:
-        logger.warning(f"Zoom API meeting creation failed, falling back to mock link. Error: {e}")
+        logger.error(f"Zoom API meeting creation failed: {e}")
         import requests
         if isinstance(e, requests.HTTPError):
             try:
@@ -164,11 +172,7 @@ def schedule_candidate_interview(agency: Agency, recruiter: User, candidate_id: 
                 zoom_error_details = e.response.text
         else:
             zoom_error_details = str(e)
-        
-        # Generate a mock Zoom meeting link
-        import random
-        meeting_id = ''.join(random.choices('0123456789', k=10))
-        meeting_link = f"https://zoom.us/j/{meeting_id}"
+        raise ServiceUnavailable(detail=f"Zoom API Error: {zoom_error_details}")
 
     meeting = CandidateMeeting.objects.create(
         candidate=candidate,

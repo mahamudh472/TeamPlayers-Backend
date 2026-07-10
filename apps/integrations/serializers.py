@@ -26,3 +26,16 @@ class ZoomMeetingCreateSerializer(serializers.Serializer):
         help_text="Meeting duration in minutes"
     )
     agenda = serializers.CharField(max_length=2000, required=False, allow_blank=True)
+
+
+class AvailableIntegrationSerializer(serializers.Serializer):
+    """Serializer for available integrations status."""
+    id = serializers.UUIDField(allow_null=True)
+    provider = serializers.CharField()
+    name = serializers.CharField()
+    is_connected = serializers.BooleanField()
+    connected_at = serializers.DateTimeField(allow_null=True)
+    metadata = serializers.JSONField()
+    created_at = serializers.DateTimeField(allow_null=True)
+    updated_at = serializers.DateTimeField(allow_null=True)
+

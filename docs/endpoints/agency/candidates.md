@@ -308,12 +308,10 @@ Request JSON:
 }
 ```
 
-Success response (201):
-
+Success response (201): cleavage-free meeting creation:
 ```json
 {
   "message": "Interview meeting scheduled and invitation email sent successfully.",
-  "zoom_warning": "Zoom meeting creation failed: Invalid access token, does not contain scopes:[meeting:write:meeting]. A mock Zoom link was generated instead.",
   "candidate": {
     "id": 1,
     "name": "Jane Smith",
@@ -357,6 +355,12 @@ Error responses:
 - 404: Candidate not found.
 ```json
 { "detail": "Candidate not found" }
+```
+- 503: Zoom Service Unavailable (Zoom API meeting creation failed).
+```json
+{
+  "detail": "Zoom API Error: Invalid access token, does not contain scopes:[meeting:write:meeting, meeting:write:meeting:admin]."
+}
 ```
 
 ---

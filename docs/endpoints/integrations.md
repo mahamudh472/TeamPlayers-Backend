@@ -5,6 +5,7 @@ Back to index: [ENDPOINT_LIST.md](../ENDPOINT_LIST.md)
 ## Endpoint Inventory
 
 - GET  `/api/v1/integrations/`
+- GET  `/api/v1/integrations/available/`
 - GET  `/api/v1/integrations/zoom/connect/`
 - GET  `/api/v1/integrations/zoom/callback/`
 - POST `/api/v1/integrations/zoom/disconnect/`
@@ -53,6 +54,68 @@ Error responses:
 
 ---
 
+## GET /api/v1/integrations/available/
+
+Description: List all available integrations (Zoom, Outlook, Google Calendar) and whether they are connected or not for the authenticated user within the specified agency.
+
+Auth: Required
+
+Headers:
+
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>`
+
+Success response (200):
+
+```json
+[
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "provider": "zoom",
+    "name": "Zoom",
+    "is_connected": true,
+    "connected_at": "2025-07-20T10:00:00Z",
+    "metadata": {
+      "zoom_user_id": "abc123",
+      "email": "jane@example.com",
+      "display_name": "Jane Example",
+      "account_id": "xyz789"
+    },
+    "created_at": "2025-07-20T10:00:00Z",
+    "updated_at": "2025-07-20T10:00:00Z"
+  },
+  {
+    "id": null,
+    "provider": "outlook",
+    "name": "Outlook",
+    "is_connected": false,
+    "connected_at": null,
+    "metadata": {},
+    "created_at": null,
+    "updated_at": null
+  },
+  {
+    "id": null,
+    "provider": "google_calendar",
+    "name": "Google Calendar",
+    "is_connected": false,
+    "connected_at": null,
+    "metadata": {},
+    "created_at": null,
+    "updated_at": null
+  }
+]
+```
+
+Error responses:
+
+- 400: Missing agency header
+```json
+{ "error": "X-Agency-ID header is required" }
+```
+
+---
+
 ## GET /api/v1/integrations/zoom/connect/
 
 Description: Generate the Zoom OAuth authorization URL. The frontend should redirect the user to this URL to begin the Zoom connection flow.
@@ -68,7 +131,7 @@ Success response (200):
 
 ```json
 {
-  "auth_url": "https://zoom.us/oauth/authorize?response_type=code&client_id=XXX&redirect_uri=XXX&state=user_id:agency_id"
+  "auth_url": "https://zoom.us/oauth/authorize?response_type=code&client_id=XXX&redirect_uri=XXX&scope=meeting%3Awrite%3Ameeting+user%3Aread%3Auser&state=user_id:agency_id"
 }
 ```
 

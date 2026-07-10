@@ -72,6 +72,7 @@ This index lists available API endpoints and links to the per-app reference page
 ### Integrations
 
 - [GET  /api/v1/integrations/](endpoints/integrations.md) — List all integrations for the authenticated user (authenticated)
+- [GET  /api/v1/integrations/available/](endpoints/integrations.md) — List all available integrations and connection status (authenticated)
 - [GET  /api/v1/integrations/zoom/connect/](endpoints/integrations.md) — Generate the Zoom OAuth authorization URL (authenticated)
 - [GET  /api/v1/integrations/zoom/callback/](endpoints/integrations.md) — OAuth callback endpoint that Zoom redirects to after user authorization
 - [POST /api/v1/integrations/zoom/disconnect/](endpoints/integrations.md) — Disconnect the user's Zoom integration (authenticated)
