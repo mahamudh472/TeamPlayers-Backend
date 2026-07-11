@@ -62,6 +62,7 @@ services:
       - "443:443"
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME}
+      - NGINX_ENVSUBST_TEMPLATE_VAR_NAMES=DOMAIN_NAME
     entrypoint: /nginx_entrypoint.sh
     volumes:
       - ./nginx/nginx_entrypoint.sh:/nginx_entrypoint.sh:ro
