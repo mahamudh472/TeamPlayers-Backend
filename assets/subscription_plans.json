@@ -2,52 +2,51 @@
     {
         "plan_name": "Starter",
         "description": "Perfect for small teams starting with AI recruitment",
-        "price": 99.00,
-        "currency": "EUR",
+        "price": 149.00,
+        "currency": "GBP",
         "interval": "month",
         "feature_list": [
             "Up to 5 users",
-            "100 AI screenings per month",
-            "Basic analytics dashboard",
-            "Email support",
-            "Standard integrations",
-            "Client portal access"
+            "Everything included",
+            "14-day trial"
         ]
     },
     {
-        "plan_name": "Professional",
+        "plan_name": "Growth",
         "description": "For growing agencies ready to scale",
-        "price": 249.00,
-        "currency": "EUR",
+        "price": 349.00,
+        "currency": "GBP",
         "interval": "month",
         "feature_list": [
             "Up to 15 users",
-            "500 AI screenings per month",
-            "Advanced analytics & reporting",
-            "AI lead generation",
-            "Priority email & chat support",
-            "All integrations included",
-            "Custom branding",
-            "API access"
+            "Everything included",
+            "Priority support"
+        ]
+    },
+    {
+        "plan_name": "Scale",
+        "description": "For larger agencies needing advanced features",
+        "price": 699.00,
+        "currency": "GBP",
+        "interval": "month",
+        "feature_list": [
+            "Up to 40 users",
+            "White-label",
+            "Advanced analytics",
+            "API integrations"
         ]
     },
     {
         "plan_name": "Enterprise",
-        "description": "Unlimited power for established agencies",
-        "price": 599.00,
-        "currency": "EUR",
+        "description": "Custom solutions for established agencies",
+        "price": 0.00,
+        "currency": "GBP",
         "interval": "month",
         "feature_list": [
             "Unlimited users",
-            "Unlimited AI screenings",
-            "Full analytics suite",
-            "Unlimited lead generation",
-            "Dedicated account manager",
+            "Dedicated onboarding",
             "Custom integrations",
-            "White-label options",
-            "SLA guarantee",
-            "Custom workflows",
-            "Advanced security"
+            "SLA"
         ]
     }
 ]

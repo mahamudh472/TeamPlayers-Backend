@@ -92,5 +92,6 @@ class SubscriptionPlanSeedingTests(TestCase):
         
         # Verify actual plans from settings.BASE_DIR/assets/subscription_plans.json are created
         self.assertTrue(Plan.objects.filter(name="Starter").exists())
-        self.assertTrue(Plan.objects.filter(name="Professional").exists())
+        self.assertTrue(Plan.objects.filter(name="Growth").exists())
+        self.assertTrue(Plan.objects.filter(name="Scale").exists())
         self.assertTrue(Plan.objects.filter(name="Enterprise").exists())
