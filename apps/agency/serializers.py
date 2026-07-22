@@ -36,10 +36,83 @@ class LeadSerializer(serializers.ModelSerializer):
             'source',
             'priority',
             'status',
+            'website',
+            'company_domain',
+            'linkedin',
+            'company_size',
+            'employee_count',
+            'hiring_activity',
+            'job_title',
+            'job_type',
+            'job_level',
+            'is_remote',
+            'job_url',
+            'description',
+            'detected_at',
+            'domain_source',
+            'enriched_at',
             'created_at',
             'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class LeadWebhookIngestSerializer(serializers.ModelSerializer):
+    companyDomain = serializers.CharField(source='company_domain', required=False, allow_null=True, allow_blank=True)
+    companySize = serializers.CharField(source='company_size', required=False, allow_null=True, allow_blank=True)
+    employeeCount = serializers.IntegerField(source='employee_count', required=False, allow_null=True)
+    hiring_activity = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    jobTitle = serializers.CharField(source='job_title', required=False, allow_null=True, allow_blank=True)
+    jobType = serializers.CharField(source='job_type', required=False, allow_null=True, allow_blank=True)
+    jobLevel = serializers.CharField(source='job_level', required=False, allow_null=True, allow_blank=True)
+    isRemote = serializers.BooleanField(source='is_remote', required=False, allow_null=True)
+    jobUrl = serializers.URLField(source='job_url', required=False, allow_null=True, allow_blank=True)
+    status = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    detectedAt = serializers.DateTimeField(source='detected_at', required=False, allow_null=True)
+    domainSource = serializers.CharField(source='domain_source', required=False, allow_null=True, allow_blank=True)
+    enrichedAt = serializers.DateTimeField(source='enriched_at', required=False, allow_null=True)
+
+    class Meta:
+        model = Leads
+        fields = [
+            'id',
+            'company',
+            'website',
+            'companyDomain',
+            'linkedin',
+            'industry',
+            'companySize',
+            'employeeCount',
+            'location',
+            'hiring_activity',
+            'jobTitle',
+            'jobType',
+            'jobLevel',
+            'isRemote',
+            'jobUrl',
+            'description',
+            'source',
+            'status',
+            'detectedAt',
+            'domainSource',
+            'enrichedAt',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_status(self, value):
+        if not value:
+            return 'new'
+        value_lower = value.lower()
+        valid_statuses = [choice[0] for choice in Leads.status.field.choices]
+        if value_lower in valid_statuses:
+            return value_lower
+        return 'new'
+
+
+class LeadWebhookResponseSerializer(LeadWebhookIngestSerializer):
+    pass
 
 
 class NoteSerializer(serializers.ModelSerializer):
@@ -75,6 +148,21 @@ class LeadDetailSerializer(serializers.ModelSerializer):
             'source',
             'priority',
             'status',
+            'website',
+            'company_domain',
+            'linkedin',
+            'company_size',
+            'employee_count',
+            'hiring_activity',
+            'job_title',
+            'job_type',
+            'job_level',
+            'is_remote',
+            'job_url',
+            'description',
+            'detected_at',
+            'domain_source',
+            'enriched_at',
             'created_at',
             'updated_at',
             'notes'

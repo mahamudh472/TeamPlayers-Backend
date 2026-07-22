@@ -77,16 +77,8 @@ def ingest_bulk_leads(agency: Agency, leads_data: list[dict], user=None) -> list
     created_leads = []
     for data in leads_data:
         lead = Leads.objects.create(
-            company=data.get('company'),
-            contact_person=data.get('contact_person'),
-            contact_email=data.get('contact_email'),
-            contact_phone=data.get('contact_phone'),
-            location=data.get('location'),
-            industry=data.get('industry'),
-            source=data.get('source'),
-            priority=data.get('priority', 'low'),
-            status=data.get('status', 'new'),
-            agency=agency
+            agency=agency,
+            **data
         )
         created_leads.append(lead)
         Activity.objects.create(

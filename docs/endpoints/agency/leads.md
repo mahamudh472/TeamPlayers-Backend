@@ -52,6 +52,21 @@ Success response (200):
       "source": "Inbound",
       "priority": "high",
       "status": "new",
+      "website": "https://google.com",
+      "company_domain": "google.com",
+      "linkedin": "https://linkedin.com/company/google",
+      "company_size": "10000+",
+      "employee_count": 139995,
+      "hiring_activity": "High",
+      "job_title": "Software Engineer",
+      "job_type": "Full-Time",
+      "job_level": "Senior",
+      "is_remote": true,
+      "job_url": "https://careers.google.com/jobs/123",
+      "description": "Looking for senior software engineers...",
+      "detected_at": "2026-06-17T15:00:00.000000Z",
+      "domain_source": "hunter.io",
+      "enriched_at": "2026-06-17T15:15:00.000000Z",
       "created_at": "2026-06-17T15:23:23.123456Z",
       "updated_at": "2026-06-17T15:23:23.123456Z"
     }
@@ -99,6 +114,21 @@ Success response (200):
   "source": "Inbound",
   "priority": "high",
   "status": "new",
+  "website": "https://google.com",
+  "company_domain": "google.com",
+  "linkedin": "https://linkedin.com/company/google",
+  "company_size": "10000+",
+  "employee_count": 139995,
+  "hiring_activity": "High",
+  "job_title": "Software Engineer",
+  "job_type": "Full-Time",
+  "job_level": "Senior",
+  "is_remote": true,
+  "job_url": "https://careers.google.com/jobs/123",
+  "description": "Looking for senior software engineers...",
+  "detected_at": "2026-06-17T15:00:00.000000Z",
+  "domain_source": "hunter.io",
+  "enriched_at": "2026-06-17T15:15:00.000000Z",
   "created_at": "2026-06-17T15:23:23.123456Z",
   "updated_at": "2026-06-17T15:23:23.123456Z",
   "notes": [
@@ -177,7 +207,7 @@ Error responses:
 
 ## POST /api/v1/agency/webhooks/leads/
 
-Description: Ingest one or more leads in JSON format from external services. Validates the global secret from settings and associates the leads with the specified agency.
+Description: Ingest one or more leads in JSON format from external services. Validates the global secret from settings and associates the leads with the specified agency. Also accepts optional user_id and session_id fields to track who initiated the session and update the lead generation session status to completed.
 
 Auth: Not required (Public URL, validated via `secret` payload field)
 
@@ -187,17 +217,30 @@ Request JSON:
 {
   "agency_id": 1,
   "secret": "your_leads_webhook_secret_key",
+  "user_id": "e229d494-b152-4752-95b6-6d2745cf0249",
+  "session_id": "e4f7a783-6d04-4cbb-bd12-70b92db2c91c",
   "leads": [
     {
       "company": "Partner Company A",
-      "contact_person": "Jane Partner",
-      "contact_email": "jane@partner.com",
-      "contact_phone": "+15550199",
-      "location": "San Francisco, CA",
+      "website": "https://partner.com",
+      "companyDomain": "partner.com",
+      "linkedin": "https://linkedin.com/company/partner",
       "industry": "Finance",
-      "source": "Partner Portal",
-      "priority": "medium",
-      "status": "new"
+      "companySize": "11-50",
+      "employeeCount": 25,
+      "location": "San Francisco, CA",
+      "hiring_activity": "Active",
+      "jobTitle": "Financial Analyst",
+      "jobType": "Full-Time",
+      "jobLevel": "Mid",
+      "isRemote": false,
+      "jobUrl": "https://jobs.partner.com/456",
+      "description": "Looking for financial analyst...",
+      "source": "n8n_crawler",
+      "status": "New",
+      "detectedAt": "2026-06-17T15:00:00Z",
+      "domainSource": "hunter.io",
+      "enrichedAt": "2026-06-17T15:15:00Z"
     }
   ]
 }
@@ -212,14 +255,25 @@ Success response (201):
     {
       "id": 15,
       "company": "Partner Company A",
-      "contact_person": "Jane Partner",
-      "contact_email": "jane@partner.com",
-      "contact_phone": "+15550199",
-      "location": "San Francisco, CA",
+      "website": "https://partner.com",
+      "companyDomain": "partner.com",
+      "linkedin": "https://linkedin.com/company/partner",
       "industry": "Finance",
-      "source": "Partner Portal",
-      "priority": "medium",
+      "companySize": "11-50",
+      "employeeCount": 25,
+      "location": "San Francisco, CA",
+      "hiring_activity": "Active",
+      "jobTitle": "Financial Analyst",
+      "jobType": "Full-Time",
+      "jobLevel": "Mid",
+      "isRemote": false,
+      "jobUrl": "https://jobs.partner.com/456",
+      "description": "Looking for financial analyst...",
+      "source": "n8n_crawler",
       "status": "new",
+      "detectedAt": "2026-06-17T15:00:00Z",
+      "domainSource": "hunter.io",
+      "enrichedAt": "2026-06-17T15:15:00Z",
       "created_at": "2026-06-17T16:10:00.123456Z",
       "updated_at": "2026-06-17T16:10:00.123456Z"
     }
@@ -296,6 +350,21 @@ Success response (200):
   "source": "Inbound",
   "priority": "high",
   "status": "contacted",
+  "website": "https://google.com",
+  "company_domain": "google.com",
+  "linkedin": "https://linkedin.com/company/google",
+  "company_size": "10000+",
+  "employee_count": 139995,
+  "hiring_activity": "High",
+  "job_title": "Software Engineer",
+  "job_type": "Full-Time",
+  "job_level": "Senior",
+  "is_remote": true,
+  "job_url": "https://careers.google.com/jobs/123",
+  "description": "Looking for senior software engineers...",
+  "detected_at": "2026-06-17T15:00:00.000000Z",
+  "domain_source": "hunter.io",
+  "enriched_at": "2026-06-17T15:15:00.000000Z",
   "created_at": "2026-06-17T15:23:23.123456Z",
   "updated_at": "2026-06-17T16:35:00.123456Z"
 }
@@ -321,7 +390,7 @@ Error responses:
 ```json
 {
   "detail": "Lead not found"
-}
+}update docs
 ```
 
 ---

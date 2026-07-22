@@ -51,6 +51,8 @@ from apps.agency.serializers import (
     UserAgencySerializer,
     LeadSerializer,
     LeadDetailSerializer,
+    LeadWebhookIngestSerializer,
+    LeadWebhookResponseSerializer,
     NoteSerializer,
     ClientSerializer,
     ClientDetailSerializer,
@@ -185,6 +187,8 @@ class LeadWebhookIngestView(APIView):
         agency_id = request.data.get('agency_id')
         secret = request.data.get('secret')
         leads_data = request.data.get('leads')
+        user_id = request.data.get('user_id')
+        session_id = request.data.get('session_id')
 
         # 1. Validate the secret
         expected_secret = getattr(settings, 'LEADS_WEBHOOK_SECRET', 'default_leads_webhook_secret_key')
@@ -194,19 +198,39 @@ class LeadWebhookIngestView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        # 2. Validate agency_id
-        if not agency_id:
-            return Response(
-                {"detail": "agency_id is required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        try:
-            agency = Agency.objects.get(id=agency_id)
-        except (Agency.DoesNotExist, ValueError):
-            return Response(
-                {"detail": "Agency not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        # 2. Resolve LeadGenerationSession, Agency, and User
+        session = None
+        if session_id:
+            from apps.agency.models import LeadGenerationSession
+            try:
+                session = LeadGenerationSession.objects.get(id=session_id)
+            except (LeadGenerationSession.DoesNotExist, ValueError):
+                pass
+
+        if session:
+            agency = session.agency
+            user = session.user
+        else:
+            if not agency_id:
+                return Response(
+                    {"detail": "agency_id is required when session_id is not provided"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            try:
+                agency = Agency.objects.get(id=agency_id)
+            except (Agency.DoesNotExist, ValueError):
+                return Response(
+                    {"detail": "Agency not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            user = None
+            if user_id:
+                from apps.accounts.models import User
+                try:
+                    user = User.objects.get(id=user_id)
+                except (User.DoesNotExist, ValueError):
+                    pass
 
         # 3. Validate leads
         if not leads_data or not isinstance(leads_data, list):
@@ -215,8 +239,8 @@ class LeadWebhookIngestView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validate each lead using the LeadSerializer
-        serializer = LeadSerializer(data=leads_data, many=True)
+        # Validate each lead using the LeadWebhookIngestSerializer
+        serializer = LeadWebhookIngestSerializer(data=leads_data, many=True)
         if not serializer.is_valid():
             return Response(
                 {"detail": "Validation failed for one or more leads", "errors": serializer.errors},
@@ -224,8 +248,14 @@ class LeadWebhookIngestView(APIView):
             )
 
         # 4. Ingest bulk leads
-        created_leads = ingest_bulk_leads(agency, serializer.validated_data)
-        response_serializer = LeadSerializer(created_leads, many=True)
+        created_leads = ingest_bulk_leads(agency, serializer.validated_data, user=user)
+
+        # 5. Mark the generation session as completed if session was resolved
+        if session:
+            session.status = 'completed'
+            session.save(update_fields=['status'])
+
+        response_serializer = LeadWebhookResponseSerializer(created_leads, many=True)
         return Response({
             "message": f"Successfully created {len(created_leads)} leads",
             "created_leads": response_serializer.data

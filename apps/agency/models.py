@@ -57,6 +57,23 @@ class Leads(models.Model):
     ], default='new')
     agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='leads')
 
+    # Extended fields from n8n
+    website = models.URLField(max_length=255, blank=True, null=True)
+    company_domain = models.CharField(max_length=255, blank=True, null=True)
+    linkedin = models.URLField(max_length=255, blank=True, null=True)
+    company_size = models.CharField(max_length=100, blank=True, null=True)
+    employee_count = models.IntegerField(blank=True, null=True)
+    hiring_activity = models.CharField(max_length=255, blank=True, null=True)
+    job_title = models.CharField(max_length=255, blank=True, null=True)
+    job_type = models.CharField(max_length=100, blank=True, null=True)
+    job_level = models.CharField(max_length=100, blank=True, null=True)
+    is_remote = models.BooleanField(null=True, blank=True)
+    job_url = models.URLField(max_length=500, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    detected_at = models.DateTimeField(blank=True, null=True)
+    domain_source = models.CharField(max_length=100, blank=True, null=True)
+    enriched_at = models.DateTimeField(blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
