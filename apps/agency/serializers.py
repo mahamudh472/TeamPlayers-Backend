@@ -61,7 +61,7 @@ class LeadWebhookIngestSerializer(serializers.ModelSerializer):
     companyDomain = serializers.CharField(source='company_domain', required=False, allow_null=True, allow_blank=True)
     companySize = serializers.CharField(source='company_size', required=False, allow_null=True, allow_blank=True)
     employeeCount = serializers.IntegerField(source='employee_count', required=False, allow_null=True)
-    hiring_activity = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    hiring_activity = serializers.BooleanField(required=False, allow_null=True)
     jobTitle = serializers.CharField(source='job_title', required=False, allow_null=True, allow_blank=True)
     jobType = serializers.CharField(source='job_type', required=False, allow_null=True, allow_blank=True)
     jobLevel = serializers.CharField(source='job_level', required=False, allow_null=True, allow_blank=True)
