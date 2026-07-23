@@ -58,7 +58,7 @@ class Leads(models.Model):
     agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='leads')
 
     # Extended fields from n8n
-    website = models.URLField(max_length=255, blank=True, null=True)
+    website = models.CharField(max_length=255, blank=True, null=True)
     company_domain = models.CharField(max_length=255, blank=True, null=True)
     linkedin = models.URLField(max_length=255, blank=True, null=True)
     company_size = models.CharField(max_length=100, blank=True, null=True)
