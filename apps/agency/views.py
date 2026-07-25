@@ -890,17 +890,30 @@ class JobCandidatesListView(APIView):
     """
     API endpoint to list candidates of a specific job.
     GET:
-        Returns a list of candidates applying for the job.
+        Returns a paginated list of candidates applying for the job.
     Headers:
         X-Agency-ID: ID of the active agency.
     """
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get(self, request, pk):
         agency_id = request.agency_id
         agency = get_verified_agency(request.user, agency_id)
 
         candidates = get_job_candidates(agency, pk)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(candidates, request, view=self)
+        if page is not None:
+            serializer = JobCandidateSerializer(page, many=True)
+            return Response({
+                "count": paginator.page.paginator.count,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "results": serializer.data
+            }, status=status.HTTP_200_OK)
+
         serializer = JobCandidateSerializer(candidates, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
