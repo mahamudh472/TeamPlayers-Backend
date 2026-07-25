@@ -34,6 +34,7 @@ from apps.agency.services import (
     get_agency_placements,
     get_agency_placement_counts,
     get_dashboard_data,
+    get_recommendations_and_hot_candidates,
     get_analytics_data,
     create_lead_generation_session,
     trigger_n8n_lead_generation
@@ -1466,6 +1467,22 @@ class GenerateJobDescriptionView(APIView):
             },
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
+
+
+class AgencyRecommendationsView(APIView):
+    """
+    API endpoint to retrieve AI recommendations and hot candidates for the agency.
+    Requires header: X-Agency-ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        
+        data = get_recommendations_and_hot_candidates(agency)
+        return Response(data, status=status.HTTP_200_OK)
+
 
 
 

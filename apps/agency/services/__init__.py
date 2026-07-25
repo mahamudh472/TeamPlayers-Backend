@@ -44,6 +44,8 @@ from .candidate_gathering import (
     trigger_n8n_candidate_gathering,
     trigger_gathered_candidates_processing
 )
+from .recommendations import get_recommendations_and_hot_candidates
+
 
 
 

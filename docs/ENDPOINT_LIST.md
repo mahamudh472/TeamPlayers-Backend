@@ -21,6 +21,7 @@ This index lists available API endpoints and links to the per-app reference page
 ### Agency
 
 - [GET  /api/v1/agency/dashboard/](endpoints/agency/dashboard.md) — Retrieve comprehensive dashboard statistics, trends, and health lists for the agency (authenticated)
+- [GET  /api/v1/agency/recommendations/](endpoints/agency/recommendations.md) — Retrieve AI recommendations and hot candidates for the agency (authenticated)
 - [GET  /api/v1/agency/analytics/](endpoints/agency/analytics.md) — Retrieve comprehensive performance insights, metric cards, charts, and tab details for the agency (authenticated)
 - [GET  /api/v1/agency/info/](endpoints/agency/info.md) — Retrieve the active agency's name and logo (authenticated)
 - [PATCH /api/v1/agency/info/](endpoints/agency/info.md) — Update the active agency's name and/or logo (authenticated)
