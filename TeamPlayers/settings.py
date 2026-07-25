@@ -292,6 +292,7 @@ ZOOM_REDIRECT_URI = os.getenv(
     'http://localhost:8000/api/v1/integrations/zoom/callback/'
 )
 N8N_WEBHOOK_URL = os.getenv('N8N_WEBHOOK_URL')
+N8N_CANDIDATE_WEBHOOK_URL = os.getenv('N8N_CANDIDATE_WEBHOOK_URL', '')
 
 # Logger config
 from .logger_conf import LOGGING
