@@ -353,6 +353,19 @@ class JobSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class JobDetailSerializer(JobSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Calculate fit counts based on candidate match percentages
+        analyses = CandidateAIAnalysis.objects.filter(candidate__job=instance)
+        
+        data['high_fit'] = analyses.filter(overall_match_percentage__gte=85.0).count()
+        data['medium_fit'] = analyses.filter(overall_match_percentage__gte=70.0, overall_match_percentage__lt=85.0).count()
+        data['low_fit'] = analyses.filter(overall_match_percentage__lt=70.0).count()
+        
+        return data
+
+
 class CandidateMinSerializer(serializers.ModelSerializer):
     job_name = serializers.CharField(source='job.title', read_only=True)
     applied = serializers.DateTimeField(source='applied_at', read_only=True)

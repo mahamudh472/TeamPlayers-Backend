@@ -57,6 +57,7 @@ from apps.agency.serializers import (
     ClientSerializer,
     ClientDetailSerializer,
     JobSerializer,
+    JobDetailSerializer,
     ClientActivitySerializer,
     CandidateActivitySerializer,
     CandidateMinSerializer,
@@ -499,7 +500,7 @@ class JobDetailView(APIView):
         agency = get_verified_agency(request.user, agency_id)
 
         job = get_agency_job_by_id(agency, pk)
-        serializer = JobSerializer(job, context={'agency': agency})
+        serializer = JobDetailSerializer(job, context={'agency': agency})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def patch(self, request, pk):
@@ -507,12 +508,14 @@ class JobDetailView(APIView):
         agency = get_verified_agency(request.user, agency_id)
 
         job = get_agency_job_by_id(agency, pk)
-        serializer = JobSerializer(job, data=request.data, partial=True, context={'agency': agency})
+        serializer = JobDetailSerializer(job, data=request.data, partial=True, context={'agency': agency})
         serializer.is_valid(raise_exception=True)
 
         updated_job = update_agency_job(agency, job, serializer.validated_data, user=request.user)
-        response_serializer = JobSerializer(updated_job)
+        response_serializer = JobDetailSerializer(updated_job)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
 
 
 class ClientJobsListView(APIView):
