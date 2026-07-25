@@ -340,12 +340,9 @@ def save_cv_file(file) -> str:
     return file_path
 
 
-def create_candidate_from_resume(agency: Agency, job, cv_file, user=None) -> Candidate:
-    """
-    Saves the uploaded CV file, parses it using the AI Candidate Parser,
-    creates the Candidate object, scores the candidate against the Job,
-    generates an AI explanation, and creates a CandidateAIAnalysis model.
-    """
+def _process_resume_in_background(candidate_id, absolute_path, extension, cv_filename, agency_id, job_id, user_id=None):
+    from apps.agency.models import Candidate, Agency, Job, Activity, CandidateAIAnalysis
+    from apps.accounts.models import User
     from django.conf import settings
     from pathlib import Path
     from apps.ai.candidate_import import import_candidate
@@ -353,8 +350,140 @@ def create_candidate_from_resume(agency: Agency, job, cv_file, user=None) -> Can
     from apps.ai.job_parser import JobParser
     from apps.ai.candidate_scorer import CandidateScorer
     from apps.ai.candidate_explainer import CandidateExplainer
-    from apps.agency.models import CandidateAIAnalysis
     from apps.ai.models.candidate import CandidateProfile
+    from django.db import close_old_connections
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        candidate = Candidate.objects.get(id=candidate_id)
+        agency = Agency.objects.get(id=agency_id)
+        job = Job.objects.get(id=job_id)
+        user = User.objects.get(id=user_id) if user_id else None
+
+        # 1. Read resume text using AI readers
+        resume_text = ""
+        try:
+            resume_text = import_candidate(str(absolute_path), extension)
+        except Exception as e:
+            logger.error(f"Failed to read candidate CV file: {e}")
+
+        # 2. Parse resume details using CandidateParser
+        profile = None
+        raw_json = None
+        if resume_text:
+            try:
+                parser = CandidateParser()
+                profile = parser.parse_candidate(resume_text)
+                if profile:
+                    raw_json = profile.model_dump()
+            except Exception as e:
+                logger.error(f"Failed to parse candidate profile using LLM: {e}")
+
+        # Fallback to default profile if parsing failed or text was unreadable
+        if not profile:
+            default_name = Path(cv_filename).stem.replace('_', ' ').replace('-', ' ').title()
+            profile = CandidateProfile(
+                full_name=default_name,
+                email=None,
+                phone=None,
+                location=None,
+                total_experience_years=0.0,
+                technical_skills=[]
+            )
+            raw_json = profile.model_dump()
+
+        # 3. Update candidate database object with parsed details
+        candidate.name = profile.full_name or candidate.name
+        candidate.email = profile.email or ""
+        candidate.phone = profile.phone or ""
+        candidate.location = profile.location or ""
+        candidate.experience = int(profile.total_experience_years) if profile.total_experience_years is not None else 0
+        candidate.skills = profile.technical_skills or []
+        candidate.current_salary = profile.current_salary or ""
+        candidate.expected_salary = profile.expected_salary or ""
+        candidate.ai_extracted_raw_json = raw_json
+        candidate.save()
+
+        # 4. Trigger AI scoring, AI explanation, and create CandidateAIAnalysis
+        try:
+            # Parse the job description into a JobDescription Pydantic model
+            job_parser = JobParser()
+            job_desc = job_parser.parse_job_description(job.description)
+
+            # Score the candidate against the Job
+            scorer = CandidateScorer()
+            score = scorer.score_candidate(profile, job_desc)
+
+            # Generate explanation for the score
+            explainer = CandidateExplainer()
+            explanation = explainer.generate_explanation(score)
+
+            skills_score = score.skills_match.score if (score and score.skills_match) else 0.0
+            exp_score = score.experience_match.score if (score and score.experience_match) else 0.0
+            sal_score = score.salary_alignment.score if (score and score.salary_alignment) else 0.0
+            loc_score = score.location_alignment.score if (score and score.location_alignment) else 0.0
+            overall_match = (skills_score + exp_score + sal_score + loc_score) / 4.0
+
+            concerns = []
+            if explanation:
+                if explanation.missing_requirements:
+                    concerns.extend(explanation.missing_requirements)
+                if explanation.red_flags:
+                    concerns.extend(explanation.red_flags)
+
+            CandidateAIAnalysis.objects.create(
+                candidate=candidate,
+                agency=agency,
+                summary=explanation.recruiter_summary if explanation else "AI Analysis generated.",
+                key_strength=explanation.key_strengths if explanation else [],
+                potential_concerns=concerns,
+                skills_match=skills_score,
+                experience_match=exp_score,
+                salary_match=sal_score,
+                location_match=loc_score,
+                overall_match_percentage=overall_match
+            )
+        except Exception as e:
+            logger.error(f"Failed to generate candidate AI analysis: {e}")
+            # Create a default blank CandidateAIAnalysis on failure so the candidate page still opens
+            CandidateAIAnalysis.objects.create(
+                candidate=candidate,
+                agency=agency,
+                summary="AI Analysis could not be generated due to an error.",
+                key_strength=[],
+                potential_concerns=[],
+                skills_match=0.0,
+                experience_match=0.0,
+                salary_match=0.0,
+                location_match=0.0,
+                overall_match_percentage=0.0
+            )
+
+        Activity.objects.create(
+            model='candidate',
+            model_id=candidate.id,
+            agency=agency,
+            user=user,
+            summary=f"Uploaded CV and created candidate profile for {candidate.name}"
+        )
+
+    except Exception as outer_err:
+        logger.error(f"Error in background resume processing task: {outer_err}")
+    finally:
+        close_old_connections()
+
+
+def create_candidate_from_resume(agency: Agency, job, cv_file, user=None) -> Candidate:
+    """
+    Saves the uploaded CV file, creates a shell Candidate object,
+    starts a background thread to parse the CV and generate match score,
+    and returns the Candidate object immediately.
+    """
+    from django.conf import settings
+    from pathlib import Path
+    import threading
     import logging
 
     logger = logging.getLogger(__name__)
@@ -364,118 +493,38 @@ def create_candidate_from_resume(agency: Agency, job, cv_file, user=None) -> Can
     absolute_path = Path(settings.MEDIA_ROOT) / file_path
     extension = absolute_path.suffix.lower().lstrip('.')
 
-    # 2. Read resume text using AI readers
-    resume_text = ""
-    try:
-        resume_text = import_candidate(str(absolute_path), extension)
-    except Exception as e:
-        logger.error(f"Failed to read candidate CV file: {e}")
+    # 2. Derive default candidate name from the file name
+    default_name = Path(cv_file.name).stem.replace('_', ' ').replace('-', ' ').title()
 
-    # 3. Parse resume details using CandidateParser
-    profile = None
-    raw_json = None
-    if resume_text:
-        try:
-            parser = CandidateParser()
-            profile = parser.parse_candidate(resume_text)
-            if profile:
-                raw_json = profile.model_dump()
-        except Exception as e:
-            logger.error(f"Failed to parse candidate profile using LLM: {e}")
-
-    # Fallback to default profile if parsing failed or text was unreadable
-    if not profile:
-        default_name = Path(cv_file.name).stem.replace('_', ' ').replace('-', ' ').title()
-        profile = CandidateProfile(
-            full_name=default_name,
-            email=None,
-            phone=None,
-            location=None,
-            total_experience_years=0.0,
-            technical_skills=[]
-        )
-        raw_json = profile.model_dump()
-
-    # 4. Create candidate database object
+    # 3. Create candidate shell database object
     candidate = Candidate.objects.create(
         agency=agency,
         job=job,
         resume=file_path,
-        name=profile.full_name or "Unknown Candidate",
-        email=profile.email or "",
-        phone=profile.phone or "",
-        location=profile.location or "",
-        experience=int(profile.total_experience_years) if profile.total_experience_years is not None else 0,
-        skills=profile.technical_skills or [],
-        current_salary=profile.current_salary or "",
-        expected_salary=profile.expected_salary or "",
-        ai_extracted_raw_json=raw_json
+        name=default_name,
+        email="",
+        phone="",
+        location="",
+        experience=0,
+        skills=[],
+        current_salary="",
+        expected_salary="",
+        status='new'
     )
 
-    # 5. Trigger AI scoring, AI explanation, and create CandidateAIAnalysis
-    try:
-        # Parse the job description into a JobDescription Pydantic model
-        job_parser = JobParser()
-        job_desc = job_parser.parse_job_description(job.description)
-
-        # Score the candidate against the Job
-        scorer = CandidateScorer()
-        score = scorer.score_candidate(profile, job_desc)
-
-        # Generate explanation for the score
-        explainer = CandidateExplainer()
-        explanation = explainer.generate_explanation(score)
-
-        skills_score = score.skills_match.score if (score and score.skills_match) else 0.0
-        exp_score = score.experience_match.score if (score and score.experience_match) else 0.0
-        sal_score = score.salary_alignment.score if (score and score.salary_alignment) else 0.0
-        loc_score = score.location_alignment.score if (score and score.location_alignment) else 0.0
-        overall_match = (skills_score + exp_score + sal_score + loc_score) / 4.0
-
-        concerns = []
-        if explanation:
-            if explanation.missing_requirements:
-                concerns.extend(explanation.missing_requirements)
-            if explanation.red_flags:
-                concerns.extend(explanation.red_flags)
-
-        CandidateAIAnalysis.objects.create(
-            candidate=candidate,
-            agency=agency,
-            summary=explanation.recruiter_summary if explanation else "AI Analysis generated.",
-            key_strength=explanation.key_strengths if explanation else [],
-            potential_concerns=concerns,
-            skills_match=skills_score,
-            experience_match=exp_score,
-            salary_match=sal_score,
-            location_match=loc_score,
-            overall_match_percentage=overall_match
-        )
-    except Exception as e:
-        logger.error(f"Failed to generate candidate AI analysis: {e}")
-        # Create a default blank CandidateAIAnalysis on failure so the candidate page still opens
-        CandidateAIAnalysis.objects.create(
-            candidate=candidate,
-            agency=agency,
-            summary="AI Analysis could not be generated due to an error.",
-            key_strength=[],
-            potential_concerns=[],
-            skills_match=0.0,
-            experience_match=0.0,
-            salary_match=0.0,
-            location_match=0.0,
-            overall_match_percentage=0.0
-        )
-
-    Activity.objects.create(
-        model='candidate',
-        model_id=candidate.id,
-        agency=agency,
-        user=user,
-        summary=f"Uploaded CV and created candidate profile for {candidate.name}"
+    # 4. Start background thread to process the CV
+    user_id = user.id if user else None
+    thread = threading.Thread(
+        target=_process_resume_in_background,
+        args=(candidate.id, absolute_path, extension, cv_file.name, agency.id, job.id, user_id)
     )
+    thread.daemon = True
+    thread.start()
 
     return candidate
+
+
+
 
 
 
