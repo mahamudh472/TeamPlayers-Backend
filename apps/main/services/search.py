@@ -13,11 +13,12 @@ def get_leads_search_result(query, agency):
         Q(industry__icontains=query)
     )
 
+
 def get_candidates_search_result(query, agency):
     """
     Search candidates for a specific agency.
     """
-    return Candidate.objects.filter(agency=agency).filter(
+    return Candidate.objects.filter(agency=agency, is_processing=False).filter(
         Q(name__icontains=query) |
         Q(email__icontains=query) |
         Q(skills__icontains=query) |

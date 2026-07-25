@@ -8,7 +8,7 @@ def get_agency_candidates(agency: Agency, search_query: str = None) -> QuerySet[
     Returns candidates for the agency, optionally filtered by a search query.
     Performs case-insensitive checks on name, email, location, and job title.
     """
-    queryset = Candidate.objects.filter(agency=agency).select_related('job').prefetch_related('ai_analysis').order_by('-applied_at')
+    queryset = Candidate.objects.filter(agency=agency, is_processing=False).select_related('job').prefetch_related('ai_analysis').order_by('-applied_at')
     if search_query:
         queryset = queryset.filter(
             Q(name__icontains=search_query) |
@@ -31,7 +31,7 @@ def get_agency_candidate_counts(agency: Agency) -> dict:
     """
     Returns total candidates, shortlisted, interviewing, and rejected counts for the agency.
     """
-    counts = Candidate.objects.filter(agency=agency).aggregate(
+    counts = Candidate.objects.filter(agency=agency, is_processing=False).aggregate(
         total=Count('id'),
         shortlisted=Count('id', filter=Q(status='shortlisted')),
         interviewing=Count('id', filter=Q(status='interviewing')),
@@ -86,7 +86,7 @@ def get_job_candidates(agency: Agency, job_id: int) -> QuerySet[Candidate]:
     """
     from apps.agency.services.jobs import get_agency_job_by_id
     job = get_agency_job_by_id(agency, job_id)
-    return Candidate.objects.filter(agency=agency, job=job).prefetch_related('ai_analysis').order_by('-applied_at')
+    return Candidate.objects.filter(agency=agency, job=job, is_processing=False).prefetch_related('ai_analysis').order_by('-applied_at')
 
 
 def shortlist_candidate(agency: Agency, candidate_id: int, user=None) -> Candidate:
@@ -461,6 +461,25 @@ def _process_resume_in_background(candidate_id, absolute_path, extension, cv_fil
                 overall_match_percentage=0.0
             )
 
+        candidate.is_processing = False
+        candidate.save()
+
+        # Send notifications to all active, accepted agency members
+        from apps.agency.models import AgencyMember
+        from apps.notifications.services.notifications import create_notification
+        try:
+            members = AgencyMember.objects.filter(agency=agency, is_active=True, invitation_status='accepted').select_related('user')
+            for member in members:
+                create_notification(
+                    user=member.user,
+                    title="Candidate Processing Complete",
+                    message=f"Candidate {candidate.name} has been processed successfully for job {job.title}.",
+                    notification_type="candidate_processed",
+                    source={"candidate_id": candidate.id, "job_id": job.id}
+                )
+        except Exception as notification_err:
+            logger.error(f"Failed to send resume processing completion notifications: {notification_err}")
+
         Activity.objects.create(
             model='candidate',
             model_id=candidate.id,
@@ -509,7 +528,8 @@ def create_candidate_from_resume(agency: Agency, job, cv_file, user=None) -> Can
         skills=[],
         current_salary="",
         expected_salary="",
-        status='new'
+        status='new',
+        is_processing=True
     )
 
     # 4. Start background thread to process the CV

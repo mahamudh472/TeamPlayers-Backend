@@ -234,6 +234,7 @@ class Candidate(models.Model):
         ('rejected', 'Rejected')], default='new')
     
     applied_at = models.DateTimeField(auto_now_add=True)
+    is_processing = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "Candidate"

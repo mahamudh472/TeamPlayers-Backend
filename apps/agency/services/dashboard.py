@@ -38,8 +38,8 @@ def get_dashboard_data(agency: Agency) -> dict:
     active_jobs_trend = calculate_trend_percentage(active_jobs_current, active_jobs_prev)
     
     # Total Candidates
-    total_candidates_current = Candidate.objects.filter(agency=agency).count()
-    total_candidates_prev = Candidate.objects.filter(agency=agency, applied_at__lt=current_month_start).count()
+    total_candidates_current = Candidate.objects.filter(agency=agency, is_processing=False).count()
+    total_candidates_prev = Candidate.objects.filter(agency=agency, applied_at__lt=current_month_start, is_processing=False).count()
     total_candidates_trend = calculate_trend_percentage(total_candidates_current, total_candidates_prev)
     
     # Active Clients
@@ -120,7 +120,8 @@ def get_dashboard_data(agency: Agency) -> dict:
         monthly_load = Candidate.objects.filter(
             agency=agency,
             applied_at__gte=month_start,
-            applied_at__lt=next_month_start
+            applied_at__lt=next_month_start,
+            is_processing=False
         ).count()
         
         month_label = month_start.strftime("%b")
@@ -157,7 +158,7 @@ def get_dashboard_data(agency: Agency) -> dict:
         })
         
     # 5. Hot Candidates (Top 5 matched candidates)
-    candidates = Candidate.objects.filter(agency=agency).select_related('job').prefetch_related('ai_analysis')
+    candidates = Candidate.objects.filter(agency=agency, is_processing=False).select_related('job').prefetch_related('ai_analysis')
     hot_candidates_data = []
     for cand in candidates:
         analysis = cand.ai_analysis.order_by('-created_at').first()
@@ -178,9 +179,9 @@ def get_dashboard_data(agency: Agency) -> dict:
     
     # 6. Pipeline Health
     pipeline_health = {
-        "applications": Candidate.objects.filter(agency=agency, status='new').count(),
-        "shortlisted": Candidate.objects.filter(agency=agency, status='shortlisted').count(),
-        "interview_stage": Candidate.objects.filter(agency=agency, status='interviewing').count(),
+        "applications": Candidate.objects.filter(agency=agency, status='new', is_processing=False).count(),
+        "shortlisted": Candidate.objects.filter(agency=agency, status='shortlisted', is_processing=False).count(),
+        "interview_stage": Candidate.objects.filter(agency=agency, status='interviewing', is_processing=False).count(),
         "placed": Placement.objects.filter(agency=agency, status='placed').count()
     }
     

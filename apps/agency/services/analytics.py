@@ -114,7 +114,7 @@ def get_analytics_data(agency: Agency, range_param: str = 'last_year') -> dict:
         })
 
     # Pipeline Distribution (Candidate flow through stages)
-    candidates_qs = Candidate.objects.filter(agency=agency)
+    candidates_qs = Candidate.objects.filter(agency=agency, is_processing=False)
     if start_date:
         candidates_qs = candidates_qs.filter(applied_at__gte=start_date)
     
@@ -225,7 +225,7 @@ def get_analytics_data(agency: Agency, range_param: str = 'last_year') -> dict:
     # ==========================================
     # 3. CANDIDATES DATA
     # ==========================================
-    candidates_list_qs = Candidate.objects.filter(agency=agency)
+    candidates_list_qs = Candidate.objects.filter(agency=agency, is_processing=False)
     if start_date:
         candidates_list_qs = candidates_list_qs.filter(applied_at__gte=start_date)
 
