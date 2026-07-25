@@ -36,7 +36,9 @@ from .views import (
     AgencyMemberListView,
     AgencyMemberDetailView,
     AcceptInvitationView,
-    GenerateJobDescriptionView
+    GenerateJobDescriptionView,
+    CandidateGatheringView,
+    CandidateWebhookIngestView
 )
 
 urlpatterns = [
@@ -50,6 +52,8 @@ urlpatterns = [
     path('leads/<int:pk>/status/', LeadChangeStatusView.as_view(), name='lead_change_status'),
     path('leads/generate/', LeadGenerationView.as_view(), name='lead_generation'),
     path('webhooks/leads/', LeadWebhookIngestView.as_view(), name='lead_webhook_ingest'),
+    path('webhooks/candidates/', CandidateWebhookIngestView.as_view(), name='candidate_webhook_ingest'),
+
     
     path('interviews/', InterviewListView.as_view(), name='interview_list'),
     path('interviews/calendar/', InterviewCalendarView.as_view(), name='interview_calendar'),
@@ -67,6 +71,8 @@ urlpatterns = [
     path('jobs/public/', PublicJobListView.as_view(), name='public_job_list'),
     path('jobs/public/<int:pk>/', PublicJobDetailView.as_view(), name='public_job_detail'),
     path('jobs/<int:pk>/candidates/', JobCandidatesListView.as_view(), name='job_candidates_list'),
+    path('jobs/<int:pk>/gather-candidates/', CandidateGatheringView.as_view(), name='candidate_gathering'),
+
 
     path('candidates/', CandidateListView.as_view(), name='candidate_list'),
     path('candidates/<int:pk>/', CandidateDetailView.as_view(), name='candidate_detail'),

@@ -16,6 +16,9 @@ Back to index: [ENDPOINT_LIST.md](../../ENDPOINT_LIST.md)
 - POST `/api/v1/agency/candidates/<id>/accept/` — Set candidate status to accepted.
 - POST `/api/v1/agency/candidates/<id>/reject/` — Set candidate status to rejected.
 - POST `/api/v1/agency/candidates/public/upload-cv/` — Public endpoint to upload a CV/resume (creates candidate and triggers AI analysis).
+- POST `/api/v1/agency/jobs/<id>/gather-candidates/` — Recruiter endpoint to trigger candidate gathering from job details.
+- POST `/api/v1/agency/webhooks/candidates/` — Webhook for n8n to ingest gathered candidates in JSON format.
+
 
 ---
 
@@ -663,11 +666,82 @@ Success response (200):
 ]
 ```
 
-Error responses:
-- 404: Candidate not found
+---
+
+## POST /api/v1/agency/jobs/<id>/gather-candidates/
+
+Description: Trigger AI candidate gathering. Creates a `CandidateGatheringSession` object and POSTs details to the configured n8n webhook URL.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Success response (201):
 ```json
-{ "detail": "Candidate not found" }
+{
+  "id": "8e3dc74a-2f47-4976-b605-4cfa6c757c91",
+  "agency": 1,
+  "job": 2,
+  "user": "e229d494-b152-4752-95b6-6d2745cf0249",
+  "status": "processing",
+  "created_at": "2026-07-25T10:00:00.123456Z",
+  "updated_at": "2026-07-25T10:00:00.123456Z"
+}
 ```
+
+---
+
+## POST /api/v1/agency/webhooks/candidates/
+
+Description: Ingest gathered candidates from n8n webhook in JSON format. Initiates background AI parsing, scoring, scoring explanation, and generates Candidate AI Analysis. Sends WebSocket/DB notification on completion.
+
+Auth: None (Public, secret verified)
+
+Request Payload (JSON):
+```json
+{
+  "secret": "your_leads_webhook_secret_key",
+  "session_id": "8e3dc74a-2f47-4976-b605-4cfa6c757c91",
+  "agency_id": 1,
+  "job_id": 2,
+  "user_id": "e229d494-b152-4752-95b6-6d2745cf0249",
+  "candidates": [
+    {
+      "name": "Alex Mercer",
+      "email": "alex.mercer@example.com",
+      "phone": "+1234567890",
+      "location": "New York, NY",
+      "experience": 4,
+      "skills": ["JavaScript", "React", "Node.js"]
+    }
+  ]
+}
+```
+
+Success response (202):
+```json
+{
+  "message": "Successfully queued 1 candidates for processing",
+  "candidate_ids": [15]
+}
+```
+
+Error responses:
+- 401: Invalid secret
+```json
+{
+  "detail": "Invalid or missing webhook secret"
+}
+```
+- 400: Validation error
+```json
+{
+  "detail": "candidates must be a non-empty list"
+}
+```
+
 
 
 

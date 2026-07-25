@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.agency.models import Agency, AgencyMember, Leads, Note, Client, ClientAISummary, Job, Activity, Candidate, CandidateAIAnalysis, Placement, CandidateMeeting, LeadGenerationSession
+from apps.agency.models import Agency, AgencyMember, Leads, Note, Client, ClientAISummary, Job, Activity, Candidate, CandidateAIAnalysis, Placement, CandidateMeeting, LeadGenerationSession, CandidateGatheringSession
 from apps.accounts.models import User
 
 class UserAgencySerializer(serializers.ModelSerializer):
@@ -706,6 +706,21 @@ class LeadGenerationSessionSerializer(serializers.ModelSerializer):
             'industry',
             'company_size',
             'hiring_activity',
+            'status',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = fields
+
+
+class CandidateGatheringSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CandidateGatheringSession
+        fields = [
+            'id',
+            'agency',
+            'job',
+            'user',
             'status',
             'created_at',
             'updated_at'

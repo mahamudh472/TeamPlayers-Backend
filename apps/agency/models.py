@@ -347,3 +347,29 @@ class LeadGenerationSession(models.Model):
 
     def __str__(self):
         return f"Session {self.id} ({self.status})"
+
+
+class CandidateGatheringSession(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='candidate_gathering_sessions')
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='candidate_gathering_sessions')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='candidate_gathering_sessions')
+
+    status = models.CharField(max_length=20, choices=[
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed')
+    ], default='pending')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'candidate_gathering_sessions'
+        verbose_name = 'Candidate Gathering Session'
+        verbose_name_plural = 'Candidate Gathering Sessions'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Session {self.id} for Job {self.job_id} ({self.status})"

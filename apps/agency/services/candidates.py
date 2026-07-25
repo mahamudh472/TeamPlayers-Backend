@@ -340,6 +340,73 @@ def save_cv_file(file) -> str:
     return file_path
 
 
+def process_candidate_ai_match(candidate, profile, job, agency) -> 'CandidateAIAnalysis':
+    """
+    Triggers AI scoring, AI explanation, and creates a CandidateAIAnalysis record.
+    """
+    from apps.ai.job_parser import JobParser
+    from apps.ai.candidate_scorer import CandidateScorer
+    from apps.ai.candidate_explainer import CandidateExplainer
+    from apps.agency.models import CandidateAIAnalysis
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Parse the job description into a JobDescription Pydantic model
+        job_parser = JobParser()
+        job_desc = job_parser.parse_job_description(job.description)
+
+        # Score the candidate against the Job
+        scorer = CandidateScorer()
+        score = scorer.score_candidate(profile, job_desc)
+
+        # Generate explanation for the score
+        explainer = CandidateExplainer()
+        explanation = explainer.generate_explanation(score)
+
+        skills_score = score.skills_match.score if (score and score.skills_match) else 0.0
+        exp_score = score.experience_match.score if (score and score.experience_match) else 0.0
+        sal_score = score.salary_alignment.score if (score and score.salary_alignment) else 0.0
+        loc_score = score.location_alignment.score if (score and score.location_alignment) else 0.0
+        overall_match = (skills_score + exp_score + sal_score + loc_score) / 4.0
+
+        concerns = []
+        if explanation:
+            if explanation.missing_requirements:
+                concerns.extend(explanation.missing_requirements)
+            if explanation.red_flags:
+                concerns.extend(explanation.red_flags)
+
+        return CandidateAIAnalysis.objects.create(
+            candidate=candidate,
+            agency=agency,
+            summary=explanation.recruiter_summary if explanation else "AI Analysis generated.",
+            key_strength=explanation.key_strengths if explanation else [],
+            potential_concerns=concerns,
+            skills_match=skills_score,
+            experience_match=exp_score,
+            salary_match=sal_score,
+            location_match=loc_score,
+            overall_match_percentage=overall_match
+        )
+    except Exception as e:
+        logger.error(f"Failed to generate candidate AI analysis: {e}")
+        # Create a default blank CandidateAIAnalysis on failure so the candidate page still opens
+        return CandidateAIAnalysis.objects.create(
+            candidate=candidate,
+            agency=agency,
+            summary="AI Analysis could not be generated due to an error.",
+            key_strength=[],
+            potential_concerns=[],
+            skills_match=0.0,
+            experience_match=0.0,
+            salary_match=0.0,
+            location_match=0.0,
+            overall_match_percentage=0.0
+        )
+
+
 def _process_resume_in_background(candidate_id, absolute_path, extension, cv_filename, agency_id, job_id, user_id=None):
     from apps.agency.models import Candidate, Agency, Job, Activity, CandidateAIAnalysis
     from apps.accounts.models import User
@@ -347,9 +414,6 @@ def _process_resume_in_background(candidate_id, absolute_path, extension, cv_fil
     from pathlib import Path
     from apps.ai.candidate_import import import_candidate
     from apps.ai.candidate_parser import CandidateParser
-    from apps.ai.job_parser import JobParser
-    from apps.ai.candidate_scorer import CandidateScorer
-    from apps.ai.candidate_explainer import CandidateExplainer
     from apps.ai.models.candidate import CandidateProfile
     from django.db import close_old_connections
     import logging
@@ -407,62 +471,11 @@ def _process_resume_in_background(candidate_id, absolute_path, extension, cv_fil
         candidate.save()
 
         # 4. Trigger AI scoring, AI explanation, and create CandidateAIAnalysis
-        try:
-            # Parse the job description into a JobDescription Pydantic model
-            job_parser = JobParser()
-            job_desc = job_parser.parse_job_description(job.description)
-
-            # Score the candidate against the Job
-            scorer = CandidateScorer()
-            score = scorer.score_candidate(profile, job_desc)
-
-            # Generate explanation for the score
-            explainer = CandidateExplainer()
-            explanation = explainer.generate_explanation(score)
-
-            skills_score = score.skills_match.score if (score and score.skills_match) else 0.0
-            exp_score = score.experience_match.score if (score and score.experience_match) else 0.0
-            sal_score = score.salary_alignment.score if (score and score.salary_alignment) else 0.0
-            loc_score = score.location_alignment.score if (score and score.location_alignment) else 0.0
-            overall_match = (skills_score + exp_score + sal_score + loc_score) / 4.0
-
-            concerns = []
-            if explanation:
-                if explanation.missing_requirements:
-                    concerns.extend(explanation.missing_requirements)
-                if explanation.red_flags:
-                    concerns.extend(explanation.red_flags)
-
-            CandidateAIAnalysis.objects.create(
-                candidate=candidate,
-                agency=agency,
-                summary=explanation.recruiter_summary if explanation else "AI Analysis generated.",
-                key_strength=explanation.key_strengths if explanation else [],
-                potential_concerns=concerns,
-                skills_match=skills_score,
-                experience_match=exp_score,
-                salary_match=sal_score,
-                location_match=loc_score,
-                overall_match_percentage=overall_match
-            )
-        except Exception as e:
-            logger.error(f"Failed to generate candidate AI analysis: {e}")
-            # Create a default blank CandidateAIAnalysis on failure so the candidate page still opens
-            CandidateAIAnalysis.objects.create(
-                candidate=candidate,
-                agency=agency,
-                summary="AI Analysis could not be generated due to an error.",
-                key_strength=[],
-                potential_concerns=[],
-                skills_match=0.0,
-                experience_match=0.0,
-                salary_match=0.0,
-                location_match=0.0,
-                overall_match_percentage=0.0
-            )
+        process_candidate_ai_match(candidate, profile, job, agency)
 
         candidate.is_processing = False
         candidate.save()
+
 
         # Send notifications to all active, accepted agency members
         from apps.agency.models import AgencyMember

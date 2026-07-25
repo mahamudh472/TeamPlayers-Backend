@@ -263,6 +263,123 @@ class LeadWebhookIngestView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+class CandidateWebhookIngestView(APIView):
+    """
+    API endpoint (webhook) for external services (like n8n) to inject gathered candidates in JSON format.
+    Requires secret token and session_id (or job_id and agency_id) in the payload.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        secret = request.data.get('secret')
+        session_id = request.data.get('session_id')
+        agency_id = request.data.get('agency_id')
+        job_id = request.data.get('job_id')
+        user_id = request.data.get('user_id')
+        candidates_data = request.data.get('candidates')
+
+        # 1. Validate the secret
+        expected_secret = getattr(settings, 'LEADS_WEBHOOK_SECRET', 'default_leads_webhook_secret_key')
+        if not secret or secret != expected_secret:
+            return Response(
+                {"detail": "Invalid or missing webhook secret"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # 2. Resolve CandidateGatheringSession, Agency, Job, and User
+        session = None
+        if session_id:
+            from apps.agency.models import CandidateGatheringSession
+            try:
+                session = CandidateGatheringSession.objects.get(id=session_id)
+            except (CandidateGatheringSession.DoesNotExist, ValueError):
+                pass
+
+        if session:
+            agency = session.agency
+            job = session.job
+            user = session.user
+        else:
+            if not agency_id or not job_id:
+                return Response(
+                    {"detail": "agency_id and job_id are required when session_id is not provided"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            try:
+                agency = Agency.objects.get(id=agency_id)
+            except (Agency.DoesNotExist, ValueError):
+                return Response(
+                    {"detail": "Agency not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            try:
+                job = Job.objects.get(id=job_id, agency=agency)
+            except (Job.DoesNotExist, ValueError):
+                return Response(
+                    {"detail": "Job not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            user = None
+            if user_id:
+                from apps.accounts.models import User
+                try:
+                    user = User.objects.get(id=user_id)
+                except (User.DoesNotExist, ValueError):
+                    pass
+
+        # 3. Validate candidates data
+        if not candidates_data or not isinstance(candidates_data, list):
+            return Response(
+                {"detail": "candidates must be a non-empty list"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 4. Create shell candidates
+        from apps.agency.models import Candidate
+        candidate_ids = []
+        for cand_data in candidates_data:
+            fallback_name = cand_data.get('name') or cand_data.get('full_name') or "Gathered Candidate"
+            cand = Candidate.objects.create(
+                agency=agency,
+                job=job,
+                name=fallback_name,
+                email=cand_data.get('email') or "",
+                phone=cand_data.get('phone') or "",
+                location=cand_data.get('location') or "",
+                experience=0,
+                skills=[],
+                current_salary="",
+                expected_salary="",
+                status='new',
+                is_processing=True,
+                ai_extracted_raw_json=cand_data
+            )
+            candidate_ids.append(cand.id)
+
+        # 5. Transition session to processing
+        if session:
+            session.status = 'processing'
+            session.save(update_fields=['status'])
+
+        # 6. Trigger background AI processing for the batch
+        from apps.agency.services.candidate_gathering import trigger_gathered_candidates_processing
+        trigger_gathered_candidates_processing(
+            session_id=str(session.id) if session else None,
+            agency_id=agency.id,
+            job_id=job.id,
+            user_id=user.id if user else None,
+            candidates_data_list=candidates_data,
+            candidate_ids=candidate_ids
+        )
+
+        return Response({
+            "message": f"Successfully queued {len(candidate_ids)} candidates for processing",
+            "candidate_ids": candidate_ids
+        }, status=status.HTTP_202_ACCEPTED)
+
+
+
 class LeadChangeStatusView(APIView):
     """
     API endpoint to change the status of a lead.
@@ -311,6 +428,42 @@ class LeadGenerationView(APIView):
 
         response_serializer = LeadGenerationSessionSerializer(session)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class CandidateGatheringView(APIView):
+    """
+    API endpoint to trigger AI candidate gathering for a job.
+    Creates a CandidateGatheringSession object and sends a request to n8n webhook.
+    Requires header: X-Agency-ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        try:
+            job = Job.objects.get(id=pk, agency=agency)
+        except (Job.DoesNotExist, ValueError):
+            return Response(
+                {"detail": "Job not found or does not belong to this agency."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        from apps.agency.services.candidate_gathering import create_candidate_gathering_session, trigger_n8n_candidate_gathering
+        from apps.agency.serializers import CandidateGatheringSessionSerializer
+
+        session = create_candidate_gathering_session(
+            agency=agency,
+            job=job,
+            user=request.user
+        )
+
+        trigger_n8n_candidate_gathering(session)
+
+        response_serializer = CandidateGatheringSessionSerializer(session)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
 
 
 class ClientListView(APIView):
