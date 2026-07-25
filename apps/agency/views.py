@@ -459,10 +459,21 @@ class CandidateGatheringView(APIView):
             user=request.user
         )
 
-        trigger_n8n_candidate_gathering(session)
+        try:
+            trigger_n8n_candidate_gathering(session)
+        except ValidationError as e:
+            error_detail = e.detail.get('detail') if isinstance(e.detail, dict) else e.detail
+            if isinstance(error_detail, list) and len(error_detail) > 0:
+                error_detail = error_detail[0]
+            return Response({
+                "detail": error_detail,
+                "session_id": str(session.id),
+                "status": "failed"
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         response_serializer = CandidateGatheringSessionSerializer(session)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
 
 
 
