@@ -111,6 +111,6 @@ def get_recommendations_and_hot_candidates(agency: Agency) -> dict:
             })
             
     return {
-        "recommendations": recommendations,
-        "hot_candidates": hot_candidates_list
+        "recommendations": recommendations[:5],
+        "hot_candidates": hot_candidates_list[:5]
     }
