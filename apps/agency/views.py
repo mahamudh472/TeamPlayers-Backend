@@ -452,6 +452,8 @@ class CandidateGatheringView(APIView):
 
         from apps.agency.services.candidate_gathering import create_candidate_gathering_session, trigger_n8n_candidate_gathering
         from apps.agency.serializers import CandidateGatheringSessionSerializer
+        from rest_framework.exceptions import ValidationError
+
 
         session = create_candidate_gathering_session(
             agency=agency,
