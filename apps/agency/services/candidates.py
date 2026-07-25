@@ -1,5 +1,5 @@
-from django.db.models import Q, QuerySet, Count
-from apps.agency.models import Agency, Candidate, Note, Activity
+from django.db.models import Q, QuerySet, Count, Subquery, OuterRef, F
+from apps.agency.models import Agency, Candidate, Note, Activity, CandidateAIAnalysis
 from apps.accounts.models import User
 from rest_framework.exceptions import NotFound
 
@@ -7,8 +7,19 @@ def get_agency_candidates(agency: Agency, search_query: str = None) -> QuerySet[
     """
     Returns candidates for the agency, optionally filtered by a search query.
     Performs case-insensitive checks on name, email, location, and job title.
+    Ordered by latest AI analysis overall match percentage descending, fallback to applied_at.
     """
-    queryset = Candidate.objects.filter(agency=agency, is_processing=False).select_related('job').prefetch_related('ai_analysis').order_by('-applied_at')
+    latest_analysis = CandidateAIAnalysis.objects.filter(
+        candidate=OuterRef('pk')
+    ).order_by('-created_at')
+
+    queryset = (
+        Candidate.objects.filter(agency=agency, is_processing=False)
+        .annotate(match_score=Subquery(latest_analysis.values('overall_match_percentage')[:1]))
+        .select_related('job')
+        .prefetch_related('ai_analysis')
+        .order_by(F('match_score').desc(nulls_last=True), '-applied_at')
+    )
     if search_query:
         queryset = queryset.filter(
             Q(name__icontains=search_query) |
@@ -83,10 +94,21 @@ def add_note_to_candidate(agency: Agency, user: User, candidate_id: int, content
 def get_job_candidates(agency: Agency, job_id: int) -> QuerySet[Candidate]:
     """
     Returns candidates applying for a specific job under the agency.
+    Ordered by latest AI analysis overall match percentage descending, fallback to applied_at.
     """
     from apps.agency.services.jobs import get_agency_job_by_id
     job = get_agency_job_by_id(agency, job_id)
-    return Candidate.objects.filter(agency=agency, job=job, is_processing=False).prefetch_related('ai_analysis').order_by('-applied_at')
+    
+    latest_analysis = CandidateAIAnalysis.objects.filter(
+        candidate=OuterRef('pk')
+    ).order_by('-created_at')
+
+    return (
+        Candidate.objects.filter(agency=agency, job=job, is_processing=False)
+        .annotate(match_score=Subquery(latest_analysis.values('overall_match_percentage')[:1]))
+        .prefetch_related('ai_analysis')
+        .order_by(F('match_score').desc(nulls_last=True), '-applied_at')
+    )
 
 
 def shortlist_candidate(agency: Agency, candidate_id: int, user=None) -> Candidate:
