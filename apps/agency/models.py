@@ -39,7 +39,7 @@ class Leads(models.Model):
     company = models.CharField(max_length=100)
     contact_person = models.CharField(max_length=100, blank=True, null=True)
     contact_email = models.EmailField(blank=True, null=True)
-    contact_phone = models.CharField(max_length=15, blank=True, null=True)
+    contact_phone = models.CharField(max_length=50, blank=True, null=True)
     location = models.CharField(max_length=100, blank=True, null=True)
     industry = models.CharField(max_length=100, blank=True, null=True)
     source = models.CharField(max_length=100, blank=True, null=True)
@@ -141,7 +141,7 @@ class Client(models.Model):
     company = models.CharField(max_length=100)
     contact_person = models.CharField(max_length=100, blank=True, null=True)
     contact_email = models.EmailField(blank=True, null=True)
-    contact_phone = models.CharField(max_length=15, blank=True, null=True)
+    contact_phone = models.CharField(max_length=50, blank=True, null=True)
     location = models.CharField(max_length=100, blank=True, null=True)
     industry = models.CharField(max_length=100, blank=True, null=True)
 
@@ -217,7 +217,7 @@ class Candidate(models.Model):
     
     name = models.CharField(max_length=100)
     email = models.EmailField()
-    phone = models.CharField(max_length=15, blank=True, null=True)
+    phone = models.CharField(max_length=50, blank=True, null=True)
     location = models.CharField(max_length=100, blank=True, null=True)
     experience = models.IntegerField(default=0)
     skills = models.JSONField(default=list, blank=True, null=True)
