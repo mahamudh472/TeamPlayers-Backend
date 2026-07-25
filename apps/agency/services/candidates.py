@@ -458,6 +458,9 @@ def _process_resume_in_background(candidate_id, absolute_path, extension, cv_fil
             )
             raw_json = profile.model_dump()
 
+        # Check for existing candidate and handle versioning
+        candidate = handle_candidate_versioning(agency, job, profile, candidate)
+
         # 3. Update candidate database object with parsed details
         candidate.name = profile.full_name or candidate.name
         candidate.email = profile.email or ""
@@ -555,6 +558,62 @@ def create_candidate_from_resume(agency: Agency, job, cv_file, user=None) -> Can
     thread.start()
 
     return candidate
+
+
+def handle_candidate_versioning(agency, job, profile, current_shell_candidate) -> Candidate:
+    """
+    Checks if a candidate with matching email or phone exists in the same agency.
+    If found, archives the existing candidate's current state to CandidateVersion,
+    deletes current_shell_candidate, and returns the existing candidate.
+    Otherwise, returns current_shell_candidate.
+    """
+    from apps.agency.models import CandidateVersion
+    from django.db.models import Q
+
+    email = profile.email or ""
+    phone = profile.phone or ""
+
+    if not email and not phone:
+        return current_shell_candidate
+
+    match_q = Q(agency=agency)
+    conditions = Q()
+    if email:
+        conditions |= Q(email=email)
+    if phone:
+        conditions |= Q(phone=phone)
+
+    existing_candidate = None
+    if conditions:
+        existing_candidate = Candidate.objects.filter(match_q & conditions).exclude(id=current_shell_candidate.id).first()
+
+    if existing_candidate:
+        # Create a new version of the existing candidate
+        CandidateVersion.objects.create(
+            candidate=existing_candidate,
+            job=existing_candidate.job,
+            name=existing_candidate.name,
+            email=existing_candidate.email,
+            phone=existing_candidate.phone,
+            location=existing_candidate.location,
+            experience=existing_candidate.experience,
+            skills=existing_candidate.skills,
+            current_salary=existing_candidate.current_salary,
+            expected_salary=existing_candidate.expected_salary,
+            resume=existing_candidate.resume,
+            status=existing_candidate.status,
+            ai_extracted_raw_json=existing_candidate.ai_extracted_raw_json
+        )
+
+        # Copy resume path from the shell candidate to existing candidate if applicable
+        if current_shell_candidate.resume:
+            existing_candidate.resume = current_shell_candidate.resume
+
+        # Delete the temporary shell candidate
+        current_shell_candidate.delete()
+        return existing_candidate
+
+    return current_shell_candidate
 
 
 

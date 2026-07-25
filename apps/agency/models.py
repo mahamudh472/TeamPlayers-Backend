@@ -243,6 +243,32 @@ class Candidate(models.Model):
     def __str__(self):
         return self.name if self.name else f"Candidate {self.id}"
 
+class CandidateVersion(models.Model):
+    candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='versions')
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='candidate_versions')
+
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+    phone = models.CharField(max_length=50, blank=True, null=True)
+    location = models.CharField(max_length=100, blank=True, null=True)
+    experience = models.IntegerField(default=0)
+    skills = models.JSONField(default=list, blank=True, null=True)
+    current_salary = models.CharField(max_length=50, blank=True, null=True)
+    expected_salary = models.CharField(max_length=50, blank=True, null=True)
+    resume = models.FileField(upload_to='candidates/resumes', blank=True, null=True)
+    status = models.CharField(max_length=20, blank=True, null=True)
+    ai_extracted_raw_json = models.JSONField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Candidate Version"
+        verbose_name_plural = "Candidate Versions"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Version of {self.candidate.name} at {self.created_at}"
+
 class CandidateAIAnalysis(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='ai_analysis')
     agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='candidate_ai_analysis')

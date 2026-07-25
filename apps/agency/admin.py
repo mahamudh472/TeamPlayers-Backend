@@ -1,8 +1,8 @@
 from django.contrib import admin
-from unfold.admin import ModelAdmin
+from unfold.admin import ModelAdmin, TabularInline
 from .models import (
     Agency, AgencyMember, Client, ClientAISummary,
-    Candidate, CandidateAIAnalysis, LeadGenerationSession, CandidateGatheringSession, Activity,
+    Candidate, CandidateVersion, CandidateAIAnalysis, LeadGenerationSession, CandidateGatheringSession, Activity,
     Leads, Job, CandidateMeeting, Placement
 )
 
@@ -36,11 +36,24 @@ class ClientAISummaryAdmin(ModelAdmin):
     search_fields = ('client__company', 'summary')
     ordering = ('-created_at',)
 
+class CandidateVersionInline(TabularInline):
+    model = CandidateVersion
+    extra = 0
+    readonly_fields = ('job', 'name', 'email', 'phone', 'location', 'experience', 'skills', 'current_salary', 'expected_salary', 'resume', 'status', 'ai_extracted_raw_json', 'created_at')
+    can_delete = False
+
 @admin.register(Candidate)
 class CandidateAdmin(ModelAdmin):
     list_display = ('id', 'name', 'email', 'phone', 'location', 'experience', 'current_salary', 'expected_salary', 'applied_at', 'status')
-    search_fields = ('name', 'email', 'location', 'job_name')
+    search_fields = ('name', 'email', 'location', 'job__title')
     ordering = ('-applied_at',)
+    inlines = [CandidateVersionInline]
+
+@admin.register(CandidateVersion)
+class CandidateVersionAdmin(ModelAdmin):
+    list_display = ('id', 'candidate', 'job', 'name', 'email', 'phone', 'created_at')
+    search_fields = ('candidate__name', 'name', 'email', 'phone')
+    ordering = ('-created_at',)
 
 @admin.register(CandidateAIAnalysis)
 class CandidateAIAnalysisAdmin(ModelAdmin):

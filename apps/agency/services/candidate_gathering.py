@@ -111,6 +111,10 @@ def _process_gathered_candidates_batch_in_background(
                     )
                     raw_json = profile.model_dump()
 
+                # Check for existing candidate and handle versioning
+                from apps.agency.services.candidates import handle_candidate_versioning
+                candidate = handle_candidate_versioning(agency, job, profile, candidate)
+
                 # 2. Update candidate fields
                 candidate.name = profile.full_name or candidate.name
                 candidate.email = profile.email or cand_data.get('email') or ""

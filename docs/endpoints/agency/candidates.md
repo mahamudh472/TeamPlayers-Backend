@@ -125,6 +125,24 @@ Success response (200):
     "Request reference checks from candidate",
     "Send technical assessment test",
     "Review portfolio and key projects"
+  ],
+  "versions": [
+    {
+      "id": 1,
+      "job": 2,
+      "name": "Jane Smith (Old Version)",
+      "email": "jane.smith@example.com",
+      "phone": "+15550199",
+      "location": "San Francisco, CA",
+      "experience": 4,
+      "skills": ["Python", "Django"],
+      "current_salary": "$110,000",
+      "expected_salary": "$130,000",
+      "resume": "http://localhost:8000/media/candidates/resumes/resume_old.pdf",
+      "status": "new",
+      "ai_extracted_raw_json": {},
+      "created_at": "2026-06-15T09:00:00Z"
+    }
   ]
 }
 ```

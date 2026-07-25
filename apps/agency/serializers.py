@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.agency.models import Agency, AgencyMember, Leads, Note, Client, ClientAISummary, Job, Activity, Candidate, CandidateAIAnalysis, Placement, CandidateMeeting, LeadGenerationSession, CandidateGatheringSession
+from apps.agency.models import Agency, AgencyMember, Leads, Note, Client, ClientAISummary, Job, Activity, Candidate, CandidateAIAnalysis, Placement, CandidateMeeting, LeadGenerationSession, CandidateGatheringSession, CandidateVersion
 from apps.accounts.models import User
 
 class UserAgencySerializer(serializers.ModelSerializer):
@@ -410,11 +410,34 @@ class CandidateAIAnalysisSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class CandidateVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CandidateVersion
+        fields = [
+            'id',
+            'job',
+            'name',
+            'email',
+            'phone',
+            'location',
+            'experience',
+            'skills',
+            'current_salary',
+            'expected_salary',
+            'resume',
+            'status',
+            'ai_extracted_raw_json',
+            'created_at'
+        ]
+        read_only_fields = fields
+
+
 class CandidateDetailSerializer(serializers.ModelSerializer):
     ai_analysis = serializers.SerializerMethodField()
     job_info = serializers.SerializerMethodField()
     recommended_actions = serializers.SerializerMethodField()
     applied = serializers.DateTimeField(source='applied_at', read_only=True)
+    versions = serializers.SerializerMethodField()
 
     class Meta:
         model = Candidate
@@ -434,7 +457,8 @@ class CandidateDetailSerializer(serializers.ModelSerializer):
             'applied_at',
             'ai_analysis',
             'job_info',
-            'recommended_actions'
+            'recommended_actions',
+            'versions'
         ]
         read_only_fields = fields
 
@@ -461,6 +485,9 @@ class CandidateDetailSerializer(serializers.ModelSerializer):
             "Send technical assessment test",
             "Review portfolio and key projects"
         ]
+
+    def get_versions(self, obj):
+        return CandidateVersionSerializer(obj.versions.all(), many=True).data
 
 
 class JobCandidateSerializer(serializers.ModelSerializer):
