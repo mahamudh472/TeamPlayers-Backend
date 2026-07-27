@@ -191,6 +191,7 @@ class Job(models.Model):
         ('part-time', 'Part Time'),
         ('hybrid', 'Hybrid'),
         ('remote', 'Remote'),
+        ('onsite', 'On-site'),
         ('contract', 'Contract')], default='full-time')
     
     status = models.CharField(max_length=20, choices=[
