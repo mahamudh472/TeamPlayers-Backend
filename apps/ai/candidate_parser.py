@@ -51,3 +51,39 @@ class CandidateParser:
         )
 
         return response.output_parsed
+
+    def parse_multiple_candidates(
+        self,
+        text: str,
+    ) -> list:
+        """
+        Parse multiple candidates from raw text.
+
+        Args:
+            text: Raw candidate text.
+
+        Returns:
+            List of CandidateProfile objects.
+        """
+        from apps.ai.models.candidate import MultipleCandidatesProfile
+        from apps.ai.prompts_loader import load_prompt
+
+        multiple_prompt = load_prompt("multiple_candidates_parser_prompt.txt")
+
+        response = self.client.responses.parse(
+            model=self.settings.openai_model,
+            input=[
+                {
+                    "role": "system",
+                    "content": multiple_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": text,
+                },
+            ],
+            text_format=MultipleCandidatesProfile,
+        )
+
+        return response.output_parsed.candidates
+

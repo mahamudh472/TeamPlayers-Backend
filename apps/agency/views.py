@@ -836,6 +836,43 @@ class CandidateListView(APIView):
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
+class CandidateMultipleUploadTextView(APIView):
+    """
+    API endpoint to upload long texts containing multiple candidate information.
+    Extracts multiple candidate profile data and analyzes them.
+    Headers:
+        X-Agency-ID: ID of the active agency.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+
+        from apps.agency.serializers import MultipleCandidatesTextUploadSerializer
+        serializer = MultipleCandidatesTextUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        job_id = serializer.validated_data['job']
+        try:
+            job = Job.objects.get(id=job_id, agency=agency)
+        except (Job.DoesNotExist, ValueError):
+            return Response(
+                {"job": "Job not found or does not belong to this agency."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        text = serializer.validated_data['text']
+
+        from apps.agency.services.candidates import create_candidates_from_text
+        create_candidates_from_text(agency, job, text, user=request.user)
+
+        return Response(
+            {"message": "Candidates extraction and analysis started in the background."},
+            status=status.HTTP_202_ACCEPTED
+        )
+
+
 class CandidateDetailView(APIView):
     """
     API endpoint to retrieve details of a specific candidate.

@@ -17,6 +17,7 @@ from .views import (
     CandidateActivityListView,
     ClientNotesView,
     CandidateListView,
+    CandidateMultipleUploadTextView,
     CandidateDetailView,
     CandidateNotesView,
     JobCandidatesListView,
@@ -77,6 +78,7 @@ urlpatterns = [
 
 
     path('candidates/', CandidateListView.as_view(), name='candidate_list'),
+    path('candidates/upload-text/', CandidateMultipleUploadTextView.as_view(), name='candidate_multiple_upload_text'),
     path('candidates/<int:pk>/', CandidateDetailView.as_view(), name='candidate_detail'),
     path('candidates/<int:pk>/notes/', CandidateNotesView.as_view(), name='candidate_notes'),
     path('candidates/<int:pk>/activities/', CandidateActivityListView.as_view(), name='candidate_activity_list'),

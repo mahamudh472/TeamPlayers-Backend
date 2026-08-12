@@ -753,3 +753,9 @@ class CandidateGatheringSessionSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
         read_only_fields = fields
+
+
+class MultipleCandidatesTextUploadSerializer(serializers.Serializer):
+    text = serializers.CharField(required=True)
+    job = serializers.IntegerField(required=True)
+

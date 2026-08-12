@@ -121,3 +121,12 @@ class CandidateProfile(BaseModel):
     raw_text: Optional[str] = None
 
     parsing_confidence: Optional[float] = None
+
+
+class MultipleCandidatesProfile(BaseModel):
+    """
+    List of parsed candidate profiles.
+    """
+
+    candidates: List[CandidateProfile]
+

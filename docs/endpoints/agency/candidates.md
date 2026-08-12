@@ -15,9 +15,11 @@ Back to index: [ENDPOINT_LIST.md](../../ENDPOINT_LIST.md)
 - POST `/api/v1/agency/candidates/<id>/offer/` — Send offer and create placement.
 - POST `/api/v1/agency/candidates/<id>/accept/` — Set candidate status to accepted.
 - POST `/api/v1/agency/candidates/<id>/reject/` — Set candidate status to rejected.
+- POST `/api/v1/agency/candidates/upload-text/` — Recruiter endpoint to upload/import candidates by parsing raw text containing multiple candidate profiles.
 - POST `/api/v1/agency/candidates/public/upload-cv/` — Public endpoint to upload a CV/resume (creates candidate and triggers AI analysis).
 - POST `/api/v1/agency/jobs/<id>/gather-candidates/` — Recruiter endpoint to trigger candidate gathering from job details.
 - POST `/api/v1/agency/webhooks/candidates/` — Webhook for n8n to ingest gathered candidates in JSON format.
+
 
 
 ---
@@ -589,6 +591,37 @@ Success response (201):
 
 Error responses:
 - 400: Validation error
+- 404: Job not found
+
+---
+
+## POST /api/v1/agency/candidates/upload-text/
+
+Description: Recruiter endpoint to upload raw text containing information for one or multiple candidates. AI will parse the raw text, check versioning, create the candidate database records, and run the matching analysis against the specified job. The processing is done asynchronously in the background.
+
+Auth: Required (Bearer access token)
+
+Headers:
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>` (Required)
+
+Request JSON:
+```json
+{
+  "text": "Jane Doe, email: jane.doe@example.com, phone: 123-456-7890, location: San Francisco, CA...",
+  "job": 7
+}
+```
+
+Success response (202):
+```json
+{
+  "message": "Candidates extraction and analysis started in the background."
+}
+```
+
+Error responses:
+- 400: Validation error (e.g. missing text or job)
 - 404: Job not found or does not belong to agency
 
 ---

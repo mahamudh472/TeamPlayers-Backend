@@ -631,11 +631,125 @@ def handle_candidate_versioning(agency, job, profile, current_shell_candidate) -
         if current_shell_candidate.resume:
             existing_candidate.resume = current_shell_candidate.resume
 
+        # Update candidate job and reset status to 'new' for the new application
+        existing_candidate.job = job
+        existing_candidate.status = 'new'
+
         # Delete the temporary shell candidate
         current_shell_candidate.delete()
         return existing_candidate
 
     return current_shell_candidate
+
+
+def _process_multiple_candidates_in_background(text, agency_id, job_id, user_id=None):
+    from apps.agency.models import Candidate, Agency, Job, Activity
+    from apps.accounts.models import User
+    from apps.ai.candidate_parser import CandidateParser
+    from django.db import close_old_connections
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        agency = Agency.objects.get(id=agency_id)
+        job = Job.objects.get(id=job_id)
+        user = User.objects.get(id=user_id) if user_id else None
+
+        # 1. Parse text using CandidateParser
+        parser = CandidateParser()
+        profiles = []
+        try:
+            profiles = parser.parse_multiple_candidates(text)
+        except Exception as e:
+            logger.error(f"Failed to parse multiple candidates from text: {e}")
+
+        # 2. For each parsed candidate profile, create candidate and run match
+        for profile in profiles:
+            try:
+                # Create shell candidate
+                candidate = Candidate.objects.create(
+                    agency=agency,
+                    job=job,
+                    name=profile.full_name or "Parsed Candidate",
+                    email="",
+                    phone="",
+                    location="",
+                    experience=0,
+                    skills=[],
+                    current_salary="",
+                    expected_salary="",
+                    status='new',
+                    is_processing=True
+                )
+
+                # Check for existing candidate and handle versioning
+                candidate = handle_candidate_versioning(agency, job, profile, candidate)
+
+                # Update candidate database object with parsed details
+                candidate.name = profile.full_name or candidate.name
+                candidate.email = profile.email or ""
+                candidate.phone = profile.phone or ""
+                candidate.location = profile.location or ""
+                candidate.experience = int(profile.total_experience_years) if profile.total_experience_years is not None else 0
+                candidate.skills = profile.technical_skills or []
+                candidate.current_salary = profile.current_salary or ""
+                candidate.expected_salary = profile.expected_salary or ""
+                candidate.ai_extracted_raw_json = profile.model_dump()
+                candidate.save()
+
+                # Trigger AI scoring, AI explanation, and create CandidateAIAnalysis
+                process_candidate_ai_match(candidate, profile, job, agency)
+
+                candidate.is_processing = False
+                candidate.save()
+
+                # Send notifications to all active, accepted agency members
+                from apps.agency.models import AgencyMember
+                from apps.notifications.services.notifications import create_notification
+                try:
+                    members = AgencyMember.objects.filter(agency=agency, is_active=True, invitation_status='accepted').select_related('user')
+                    for member in members:
+                        create_notification(
+                            user=member.user,
+                            title="Candidate Processing Complete",
+                            message=f"Candidate {candidate.name} has been processed successfully from text import for job {job.title}.",
+                            notification_type="candidate_processed",
+                            source={"candidate_id": candidate.id, "job_id": job.id}
+                        )
+                except Exception as notification_err:
+                    logger.error(f"Failed to send resume processing completion notifications: {notification_err}")
+
+                Activity.objects.create(
+                    model='candidate',
+                    model_id=candidate.id,
+                    agency=agency,
+                    user=user,
+                    summary=f"Imported candidate {candidate.name} from text import"
+                )
+            except Exception as candidate_err:
+                logger.error(f"Error processing individual candidate profile {profile.full_name if profile else 'unknown'}: {candidate_err}")
+
+    except Exception as outer_err:
+        logger.error(f"Error in background multiple candidate processing task: {outer_err}")
+    finally:
+        close_old_connections()
+
+
+def create_candidates_from_text(agency: Agency, job, text: str, user=None):
+    """
+    Starts a background thread to parse multiple candidates from raw text,
+    create candidate records, and run AI match analyses.
+    """
+    import threading
+    user_id = user.id if user else None
+    thread = threading.Thread(
+        target=_process_multiple_candidates_in_background,
+        args=(text, agency.id, job.id, user_id)
+    )
+    thread.daemon = True
+    thread.start()
+
 
 
 
