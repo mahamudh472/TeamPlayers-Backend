@@ -1,4 +1,3 @@
-from httpcore import request
 import requests
 import logging
 from django.conf import settings
