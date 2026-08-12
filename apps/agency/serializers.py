@@ -438,6 +438,7 @@ class CandidateDetailSerializer(serializers.ModelSerializer):
     recommended_actions = serializers.SerializerMethodField()
     applied = serializers.DateTimeField(source='applied_at', read_only=True)
     versions = serializers.SerializerMethodField()
+    resume = serializers.FileField(read_only=True)
 
     class Meta:
         model = Candidate

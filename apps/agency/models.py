@@ -210,12 +210,9 @@ class Job(models.Model):
     def __str__(self):
         return self.title if self.title else f"Job {self.id}"    
 
-class Candidate(models.Model):
-    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='candidates')
-    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='candidates')
 
-    ai_extracted_raw_json = models.JSONField(blank=True, null=True)
-    
+class CandidateProfile(models.Model):
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='candidate_profiles')
     name = models.CharField(max_length=100)
     email = models.EmailField()
     phone = models.CharField(max_length=50, blank=True, null=True)
@@ -225,7 +222,24 @@ class Candidate(models.Model):
     current_salary = models.CharField(max_length=50, blank=True, null=True)
     expected_salary = models.CharField(max_length=50, blank=True, null=True)
     resume = models.FileField(upload_to='candidates/resumes', blank=True, null=True)
-    
+    ai_extracted_raw_json = models.JSONField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('agency', 'email')
+        verbose_name = "Candidate Profile"
+        verbose_name_plural = "Candidate Profiles"
+
+    def __str__(self):
+        return self.name if self.name else f"Profile {self.id}"
+
+
+class Candidate(models.Model):
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='candidates')
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='candidates')
+    profile = models.ForeignKey(CandidateProfile, on_delete=models.CASCADE, related_name='candidates')
+
     status = models.CharField(max_length=20, choices=[
         ('new', 'New'),
         ('shortlisted', 'Shortlisted'),
@@ -236,6 +250,46 @@ class Candidate(models.Model):
     
     applied_at = models.DateTimeField(auto_now_add=True)
     is_processing = models.BooleanField(default=False)
+
+    @property
+    def name(self):
+        return self.profile.name if self.profile else ""
+
+    @property
+    def email(self):
+        return self.profile.email if self.profile else ""
+
+    @property
+    def phone(self):
+        return self.profile.phone if self.profile else ""
+
+    @property
+    def location(self):
+        return self.profile.location if self.profile else ""
+
+    @property
+    def experience(self):
+        return self.profile.experience if self.profile else 0
+
+    @property
+    def skills(self):
+        return self.profile.skills if self.profile else []
+
+    @property
+    def current_salary(self):
+        return self.profile.current_salary if self.profile else ""
+
+    @property
+    def expected_salary(self):
+        return self.profile.expected_salary if self.profile else ""
+
+    @property
+    def resume(self):
+        return self.profile.resume if self.profile else None
+
+    @property
+    def ai_extracted_raw_json(self):
+        return self.profile.ai_extracted_raw_json if self.profile else None
 
     class Meta:
         verbose_name = "Candidate"

@@ -1,5 +1,5 @@
 from django.db.models import Q, QuerySet, Count, Subquery, OuterRef, F
-from apps.agency.models import Agency, Candidate, Note, Activity, CandidateAIAnalysis
+from apps.agency.models import Agency, Candidate, Note, Activity, CandidateAIAnalysis, CandidateProfile
 from apps.accounts.models import User
 from rest_framework.exceptions import NotFound
 
@@ -22,9 +22,9 @@ def get_agency_candidates(agency: Agency, search_query: str = None) -> QuerySet[
     )
     if search_query:
         queryset = queryset.filter(
-            Q(name__icontains=search_query) |
-            Q(email__icontains=search_query) |
-            Q(location__icontains=search_query) |
+            Q(profile__name__icontains=search_query) |
+            Q(profile__email__icontains=search_query) |
+            Q(profile__location__icontains=search_query) |
             Q(job__title__icontains=search_query)
         )
     return queryset
@@ -430,13 +430,13 @@ def process_candidate_ai_match(candidate, profile, job, agency) -> 'CandidateAIA
 
 
 def _process_resume_in_background(candidate_id, absolute_path, extension, cv_filename, agency_id, job_id, user_id=None):
-    from apps.agency.models import Candidate, Agency, Job, Activity, CandidateAIAnalysis
+    from apps.agency.models import Candidate, Agency, Job, Activity, CandidateAIAnalysis, CandidateProfile
     from apps.accounts.models import User
     from django.conf import settings
     from pathlib import Path
     from apps.ai.candidate_import import import_candidate
     from apps.ai.candidate_parser import CandidateParser
-    from apps.ai.models.candidate import CandidateProfile
+    from apps.ai.models.candidate import CandidateProfile as AICandidateProfile
     from django.db import close_old_connections
     import logging
 
@@ -456,21 +456,21 @@ def _process_resume_in_background(candidate_id, absolute_path, extension, cv_fil
             logger.error(f"Failed to read candidate CV file: {e}")
 
         # 2. Parse resume details using CandidateParser
-        profile = None
+        profile_data = None
         raw_json = None
         if resume_text:
             try:
                 parser = CandidateParser()
-                profile = parser.parse_candidate(resume_text)
-                if profile:
-                    raw_json = profile.model_dump()
+                profile_data = parser.parse_candidate(resume_text)
+                if profile_data:
+                    raw_json = profile_data.model_dump()
             except Exception as e:
                 logger.error(f"Failed to parse candidate profile using LLM: {e}")
 
-        # Fallback to default profile if parsing failed or text was unreadable
-        if not profile:
+        # Fallback to default profile_data if parsing failed or text was unreadable
+        if not profile_data:
             default_name = Path(cv_filename).stem.replace('_', ' ').replace('-', ' ').title()
-            profile = CandidateProfile(
+            profile_data = AICandidateProfile(
                 full_name=default_name,
                 email=None,
                 phone=None,
@@ -478,25 +478,47 @@ def _process_resume_in_background(candidate_id, absolute_path, extension, cv_fil
                 total_experience_years=0.0,
                 technical_skills=[]
             )
-            raw_json = profile.model_dump()
+            raw_json = profile_data.model_dump()
 
-        # Check for existing candidate and handle versioning
-        candidate = handle_candidate_versioning(agency, job, profile, candidate)
+        # Update or merge CandidateProfile
+        email = profile_data.email or ""
+        phone = profile_data.phone or ""
 
-        # 3. Update candidate database object with parsed details
-        candidate.name = profile.full_name or candidate.name
-        candidate.email = profile.email or ""
-        candidate.phone = profile.phone or ""
-        candidate.location = profile.location or ""
-        candidate.experience = int(profile.total_experience_years) if profile.total_experience_years is not None else 0
-        candidate.skills = profile.technical_skills or []
-        candidate.current_salary = profile.current_salary or ""
-        candidate.expected_salary = profile.expected_salary or ""
-        candidate.ai_extracted_raw_json = raw_json
-        candidate.save()
+        db_profile = None
+        if email:
+            db_profile = CandidateProfile.objects.filter(agency=agency, email=email).exclude(id=candidate.profile.id).first()
+        if not db_profile and phone:
+            db_profile = CandidateProfile.objects.filter(agency=agency, phone=phone).exclude(id=candidate.profile.id).first()
+
+        temp_profile = candidate.profile
+
+        if db_profile:
+            # We found an existing profile. Associate the candidate application with it, and delete the temporary one
+            candidate.profile = db_profile
+            candidate.save()
+            if temp_profile:
+                temp_profile.delete()
+        else:
+            # No existing profile, we use and update the temporary one
+            db_profile = temp_profile
+
+        # Update db_profile fields with parsed details
+        db_profile.name = profile_data.full_name or db_profile.name
+        db_profile.email = profile_data.email or db_profile.email
+        db_profile.phone = profile_data.phone or db_profile.phone or ""
+        db_profile.location = profile_data.location or db_profile.location or ""
+        db_profile.experience = int(profile_data.total_experience_years) if profile_data.total_experience_years is not None else 0
+        db_profile.skills = profile_data.technical_skills or []
+        db_profile.current_salary = profile_data.current_salary or ""
+        db_profile.expected_salary = profile_data.expected_salary or ""
+        db_profile.ai_extracted_raw_json = raw_json
+        db_profile.save()
+
+        # Check for existing candidate application and handle versioning
+        candidate = handle_candidate_versioning(agency, job, db_profile, candidate)
 
         # 4. Trigger AI scoring, AI explanation, and create CandidateAIAnalysis
-        process_candidate_ai_match(candidate, profile, job, agency)
+        process_candidate_ai_match(candidate, profile_data, job, agency)
 
         candidate.is_processing = False
         candidate.save()
@@ -542,6 +564,8 @@ def create_candidate_from_resume(agency: Agency, job, cv_file, user=None) -> Can
     from pathlib import Path
     import threading
     import logging
+    import uuid
+    from apps.agency.models import CandidateProfile
 
     logger = logging.getLogger(__name__)
 
@@ -553,19 +577,20 @@ def create_candidate_from_resume(agency: Agency, job, cv_file, user=None) -> Can
     # 2. Derive default candidate name from the file name
     default_name = Path(cv_file.name).stem.replace('_', ' ').replace('-', ' ').title()
 
+    # Create temporary email/phone profile
+    temp_email = f"no-email-{uuid.uuid4().hex[:10]}@temp.com"
+    profile = CandidateProfile.objects.create(
+        agency=agency,
+        name=default_name,
+        email=temp_email,
+        resume=file_path
+    )
+
     # 3. Create candidate shell database object
     candidate = Candidate.objects.create(
         agency=agency,
         job=job,
-        resume=file_path,
-        name=default_name,
-        email="",
-        phone="",
-        location="",
-        experience=0,
-        skills=[],
-        current_salary="",
-        expected_salary="",
+        profile=profile,
         status='new',
         is_processing=True
     )
@@ -582,58 +607,52 @@ def create_candidate_from_resume(agency: Agency, job, cv_file, user=None) -> Can
     return candidate
 
 
-def handle_candidate_versioning(agency, job, profile, current_shell_candidate) -> Candidate:
+def handle_candidate_versioning(agency, job, db_profile, current_shell_candidate) -> Candidate:
     """
-    Checks if a candidate with matching email or phone exists in the same agency.
-    If found, archives the existing candidate's current state to CandidateVersion,
+    Checks if a candidate application with matching profile already exists for this job in the agency.
+    If it exists, archives its current state to CandidateVersion, updates its profile,
     deletes current_shell_candidate, and returns the existing candidate.
-    Otherwise, returns current_shell_candidate.
+    Otherwise, links current_shell_candidate to profile and returns it.
     """
-    from apps.agency.models import CandidateVersion
-    from django.db.models import Q
+    from apps.agency.models import CandidateVersion, Candidate
 
-    email = profile.email or ""
-    phone = profile.phone or ""
+    # Link profile to shell candidate first (so it's associated)
+    current_shell_candidate.profile = db_profile
+    current_shell_candidate.save()
 
-    if not email and not phone:
-        return current_shell_candidate
-
-    match_q = Q(agency=agency)
-    conditions = Q()
-    if email:
-        conditions |= Q(email=email)
-    if phone:
-        conditions |= Q(phone=phone)
-
-    existing_candidate = None
-    if conditions:
-        existing_candidate = Candidate.objects.filter(match_q & conditions).exclude(id=current_shell_candidate.id).first()
+    # Look for an existing Candidate application for the SAME job and SAME profile in this agency
+    existing_candidate = Candidate.objects.filter(
+        agency=agency,
+        job=job,
+        profile=db_profile
+    ).exclude(id=current_shell_candidate.id).first()
 
     if existing_candidate:
-        # Create a new version of the existing candidate
+        # Create a new version of the existing candidate application before resetting it
         CandidateVersion.objects.create(
             candidate=existing_candidate,
             job=existing_candidate.job,
-            name=existing_candidate.name,
-            email=existing_candidate.email,
-            phone=existing_candidate.phone,
-            location=existing_candidate.location,
-            experience=existing_candidate.experience,
-            skills=existing_candidate.skills,
-            current_salary=existing_candidate.current_salary,
-            expected_salary=existing_candidate.expected_salary,
-            resume=existing_candidate.resume,
+            name=existing_candidate.profile.name,
+            email=existing_candidate.profile.email,
+            phone=existing_candidate.profile.phone,
+            location=existing_candidate.profile.location,
+            experience=existing_candidate.profile.experience,
+            skills=existing_candidate.profile.skills,
+            current_salary=existing_candidate.profile.current_salary,
+            expected_salary=existing_candidate.profile.expected_salary,
+            resume=existing_candidate.profile.resume,
             status=existing_candidate.status,
-            ai_extracted_raw_json=existing_candidate.ai_extracted_raw_json
+            ai_extracted_raw_json=existing_candidate.profile.ai_extracted_raw_json
         )
 
-        # Copy resume path from the shell candidate to existing candidate if applicable
-        if current_shell_candidate.resume:
-            existing_candidate.resume = current_shell_candidate.resume
+        # Copy resume path from the shell candidate to existing candidate's profile if applicable
+        if current_shell_candidate.profile.resume:
+            existing_candidate.profile.resume = current_shell_candidate.profile.resume
+            existing_candidate.profile.save()
 
-        # Update candidate job and reset status to 'new' for the new application
-        existing_candidate.job = job
+        # Reset status for the new application
         existing_candidate.status = 'new'
+        existing_candidate.save()
 
         # Delete the temporary shell candidate
         current_shell_candidate.delete()
@@ -643,11 +662,12 @@ def handle_candidate_versioning(agency, job, profile, current_shell_candidate) -
 
 
 def _process_multiple_candidates_in_background(text, agency_id, job_id, user_id=None):
-    from apps.agency.models import Candidate, Agency, Job, Activity
+    from apps.agency.models import Candidate, Agency, Job, Activity, CandidateProfile
     from apps.accounts.models import User
     from apps.ai.candidate_parser import CandidateParser
     from django.db import close_old_connections
     import logging
+    import uuid
 
     logger = logging.getLogger(__name__)
 
@@ -665,41 +685,52 @@ def _process_multiple_candidates_in_background(text, agency_id, job_id, user_id=
             logger.error(f"Failed to parse multiple candidates from text: {e}")
 
         # 2. For each parsed candidate profile, create candidate and run match
-        for profile in profiles:
+        for profile_data in profiles:
             try:
-                # Create shell candidate
+                # Find or create CandidateProfile by email/phone
+                email = profile_data.email or ""
+                phone = profile_data.phone or ""
+
+                db_profile = None
+                if email:
+                    db_profile = CandidateProfile.objects.filter(agency=agency, email=email).first()
+                if not db_profile and phone:
+                    db_profile = CandidateProfile.objects.filter(agency=agency, phone=phone).first()
+
+                if not db_profile:
+                    db_profile = CandidateProfile.objects.create(
+                        agency=agency,
+                        name=profile_data.full_name or "Parsed Candidate",
+                        email=email or f"no-email-{uuid.uuid4().hex[:10]}@temp.com",
+                        phone=phone or ""
+                    )
+
+                # Update profile details
+                db_profile.name = profile_data.full_name or db_profile.name
+                db_profile.email = profile_data.email or db_profile.email
+                db_profile.phone = profile_data.phone or db_profile.phone or ""
+                db_profile.location = profile_data.location or db_profile.location or ""
+                db_profile.experience = int(profile_data.total_experience_years) if profile_data.total_experience_years is not None else 0
+                db_profile.skills = profile_data.technical_skills or []
+                db_profile.current_salary = profile_data.current_salary or ""
+                db_profile.expected_salary = profile_data.expected_salary or ""
+                db_profile.ai_extracted_raw_json = profile_data.model_dump()
+                db_profile.save()
+
+                # Create shell candidate application (linked to profile)
                 candidate = Candidate.objects.create(
                     agency=agency,
                     job=job,
-                    name=profile.full_name or "Parsed Candidate",
-                    email="",
-                    phone="",
-                    location="",
-                    experience=0,
-                    skills=[],
-                    current_salary="",
-                    expected_salary="",
+                    profile=db_profile,
                     status='new',
                     is_processing=True
                 )
 
-                # Check for existing candidate and handle versioning
-                candidate = handle_candidate_versioning(agency, job, profile, candidate)
-
-                # Update candidate database object with parsed details
-                candidate.name = profile.full_name or candidate.name
-                candidate.email = profile.email or ""
-                candidate.phone = profile.phone or ""
-                candidate.location = profile.location or ""
-                candidate.experience = int(profile.total_experience_years) if profile.total_experience_years is not None else 0
-                candidate.skills = profile.technical_skills or []
-                candidate.current_salary = profile.current_salary or ""
-                candidate.expected_salary = profile.expected_salary or ""
-                candidate.ai_extracted_raw_json = profile.model_dump()
-                candidate.save()
+                # Check for existing candidate application and handle versioning
+                candidate = handle_candidate_versioning(agency, job, db_profile, candidate)
 
                 # Trigger AI scoring, AI explanation, and create CandidateAIAnalysis
-                process_candidate_ai_match(candidate, profile, job, agency)
+                process_candidate_ai_match(candidate, profile_data, job, agency)
 
                 candidate.is_processing = False
                 candidate.save()
@@ -713,7 +744,7 @@ def _process_multiple_candidates_in_background(text, agency_id, job_id, user_id=
                         create_notification(
                             user=member.user,
                             title="Candidate Processing Complete",
-                            message=f"Candidate {candidate.name} has been processed successfully from text import for job {job.title}.",
+                            message=f"Candidate {candidate.profile.name} has been processed successfully from text import for job {job.title}.",
                             notification_type="candidate_processed",
                             source={"candidate_id": candidate.id, "job_id": job.id}
                         )
@@ -725,10 +756,10 @@ def _process_multiple_candidates_in_background(text, agency_id, job_id, user_id=
                     model_id=candidate.id,
                     agency=agency,
                     user=user,
-                    summary=f"Imported candidate {candidate.name} from text import"
+                    summary=f"Imported candidate {candidate.profile.name} from text import"
                 )
             except Exception as candidate_err:
-                logger.error(f"Error processing individual candidate profile {profile.full_name if profile else 'unknown'}: {candidate_err}")
+                logger.error(f"Error processing individual candidate profile {profile_data.full_name if profile_data else 'unknown'}: {candidate_err}")
 
     except Exception as outer_err:
         logger.error(f"Error in background multiple candidate processing task: {outer_err}")

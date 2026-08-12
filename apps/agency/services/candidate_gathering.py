@@ -111,21 +111,42 @@ def _process_gathered_candidates_batch_in_background(
                     )
                     raw_json = profile.model_dump()
 
-                # Check for existing candidate and handle versioning
-                from apps.agency.services.candidates import handle_candidate_versioning
-                candidate = handle_candidate_versioning(agency, job, profile, candidate)
+                # Update or merge CandidateProfile
+                from apps.agency.models import CandidateProfile
+                email = profile.email or ""
+                phone = profile.phone or ""
 
-                # 2. Update candidate fields
-                candidate.name = profile.full_name or candidate.name
-                candidate.email = profile.email or cand_data.get('email') or ""
-                candidate.phone = profile.phone or cand_data.get('phone') or ""
-                candidate.location = profile.location or cand_data.get('location') or ""
-                candidate.experience = int(profile.total_experience_years) if profile.total_experience_years is not None else 0
-                candidate.skills = profile.technical_skills or []
-                candidate.current_salary = profile.current_salary or ""
-                candidate.expected_salary = profile.expected_salary or ""
-                candidate.ai_extracted_raw_json = raw_json
-                candidate.save()
+                db_profile = None
+                if email:
+                    db_profile = CandidateProfile.objects.filter(agency=agency, email=email).exclude(id=candidate.profile.id).first()
+                if not db_profile and phone:
+                    db_profile = CandidateProfile.objects.filter(agency=agency, phone=phone).exclude(id=candidate.profile.id).first()
+
+                temp_profile = candidate.profile
+
+                if db_profile:
+                    candidate.profile = db_profile
+                    candidate.save()
+                    if temp_profile:
+                        temp_profile.delete()
+                else:
+                    db_profile = temp_profile
+
+                # Update db_profile fields with parsed details
+                db_profile.name = profile.full_name or db_profile.name
+                db_profile.email = profile.email or db_profile.email
+                db_profile.phone = profile.phone or db_profile.phone or ""
+                db_profile.location = profile.location or db_profile.location or ""
+                db_profile.experience = int(profile.total_experience_years) if profile.total_experience_years is not None else 0
+                db_profile.skills = profile.technical_skills or []
+                db_profile.current_salary = profile.current_salary or ""
+                db_profile.expected_salary = profile.expected_salary or ""
+                db_profile.ai_extracted_raw_json = raw_json
+                db_profile.save()
+
+                # Check for existing candidate application and handle versioning
+                from apps.agency.services.candidates import handle_candidate_versioning
+                candidate = handle_candidate_versioning(agency, job, db_profile, candidate)
 
                 # 3. Trigger AI scoring & analysis
                 process_candidate_ai_match(candidate, profile, job, agency)

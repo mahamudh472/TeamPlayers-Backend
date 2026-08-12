@@ -2,7 +2,7 @@ from django.contrib import admin
 from unfold.admin import ModelAdmin, TabularInline
 from .models import (
     Agency, AgencyMember, Client, ClientAISummary,
-    Candidate, CandidateVersion, CandidateAIAnalysis, LeadGenerationSession, CandidateGatheringSession, Activity,
+    Candidate, CandidateProfile, CandidateVersion, CandidateAIAnalysis, LeadGenerationSession, CandidateGatheringSession, Activity,
     Leads, Job, CandidateMeeting, Placement
 )
 
@@ -42,12 +42,26 @@ class CandidateVersionInline(TabularInline):
     readonly_fields = ('job', 'name', 'email', 'phone', 'location', 'experience', 'skills', 'current_salary', 'expected_salary', 'resume', 'status', 'ai_extracted_raw_json', 'created_at')
     can_delete = False
 
+@admin.register(CandidateProfile)
+class CandidateProfileAdmin(ModelAdmin):
+    list_display = ('id', 'name', 'email', 'phone', 'location', 'experience', 'current_salary', 'expected_salary', 'created_at')
+    search_fields = ('name', 'email', 'phone', 'location')
+    ordering = ('-created_at',)
+
 @admin.register(Candidate)
 class CandidateAdmin(ModelAdmin):
-    list_display = ('id', 'name', 'email', 'phone', 'location', 'experience', 'current_salary', 'expected_salary', 'applied_at', 'status')
-    search_fields = ('name', 'email', 'location', 'job__title')
+    list_display = ('id', 'get_name', 'get_email', 'job', 'status', 'applied_at')
+    search_fields = ('profile__name', 'profile__email', 'profile__location', 'job__title')
     ordering = ('-applied_at',)
     inlines = [CandidateVersionInline]
+
+    def get_name(self, obj):
+        return obj.profile.name if obj.profile else ""
+    get_name.short_description = "Name"
+
+    def get_email(self, obj):
+        return obj.profile.email if obj.profile else ""
+    get_email.short_description = "Email"
 
 @admin.register(CandidateVersion)
 class CandidateVersionAdmin(ModelAdmin):

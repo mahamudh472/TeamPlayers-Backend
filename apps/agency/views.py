@@ -337,24 +337,41 @@ class CandidateWebhookIngestView(APIView):
             )
 
         # 4. Create shell candidates
-        from apps.agency.models import Candidate
+        from apps.agency.models import Candidate, CandidateProfile
+        import uuid
         candidate_ids = []
         for cand_data in candidates_data:
             fallback_name = cand_data.get('name') or cand_data.get('full_name') or "Gathered Candidate"
+            
+            # Find or create CandidateProfile by email/phone
+            email = cand_data.get('email') or ""
+            phone = cand_data.get('phone') or ""
+            db_profile = None
+            if email:
+                db_profile = CandidateProfile.objects.filter(agency=agency, email=email).first()
+            if not db_profile and phone:
+                db_profile = CandidateProfile.objects.filter(agency=agency, phone=phone).first()
+
+            if not db_profile:
+                db_profile = CandidateProfile.objects.create(
+                    agency=agency,
+                    name=fallback_name,
+                    email=email or f"no-email-{uuid.uuid4().hex[:10]}@temp.com",
+                    phone=phone or "",
+                    location=cand_data.get('location') or "",
+                    experience=0,
+                    skills=cand_data.get('skills') or [],
+                    current_salary="",
+                    expected_salary="",
+                    ai_extracted_raw_json=cand_data
+                )
+
             cand = Candidate.objects.create(
                 agency=agency,
                 job=job,
-                name=fallback_name,
-                email=cand_data.get('email') or "",
-                phone=cand_data.get('phone') or "",
-                location=cand_data.get('location') or "",
-                experience=0,
-                skills=[],
-                current_salary="",
-                expected_salary="",
+                profile=db_profile,
                 status='new',
-                is_processing=True,
-                ai_extracted_raw_json=cand_data
+                is_processing=True
             )
             candidate_ids.append(cand.id)
 
