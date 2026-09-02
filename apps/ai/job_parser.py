@@ -15,9 +15,10 @@ class JobParser:
         self.client: OpenAI = get_openai_client()
         self.settings = get_settings()
 
-        self.system_prompt = load_prompt(
-            "parser_prompt.txt"
-        )
+        try:
+            self.system_prompt = load_prompt("job_parser_prompt.txt")
+        except Exception:
+            self.system_prompt = load_prompt("parser_prompt.txt")
 
     def parse_job_description(
         self,
@@ -40,7 +41,7 @@ class JobParser:
 
         try:
             # Truncate overly long text to prevent model max output tokens truncation
-            cleaned_text = job_description[:8000]
+            cleaned_text = job_description[:6000]
 
             response = self.client.responses.parse(
                 model=self.settings.openai_model,
@@ -57,7 +58,10 @@ class JobParser:
                 text_format=JobDescription,
             )
 
-            return response.output_parsed
+            result = response.output_parsed
+            if result:
+                result.raw_text = job_description
+            return result
         except Exception as e:
             logger.error(f"Failed to parse job description via OpenAI: {e}")
             return JobDescription(

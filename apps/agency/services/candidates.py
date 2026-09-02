@@ -375,9 +375,20 @@ def process_candidate_ai_match(candidate, profile, job, agency) -> 'CandidateAIA
     logger = logging.getLogger(__name__)
 
     try:
+        # Build comprehensive job text
+        skills_str = ', '.join(job.skills) if isinstance(job.skills, list) else (job.skills or '')
+        job_input_text = (
+            f"Job Title: {job.title}\n"
+            f"Location: {job.location or 'Not specified'}\n"
+            f"Experience Required: {job.experince_required or 'Not specified'} years\n"
+            f"Key Required Skills: {skills_str}\n"
+            f"Employment Type: {job.job_type or 'Full-Time'}\n"
+            f"Job Description:\n{job.description or job.title}"
+        )
+
         # Parse the job description into a JobDescription Pydantic model
         job_parser = JobParser()
-        job_desc = job_parser.parse_job_description(job.description or job.title)
+        job_desc = job_parser.parse_job_description(job_input_text)
 
         # Ensure fallback fields are populated from Job model
         if not job_desc.job_title:
