@@ -1,3 +1,4 @@
+import logging
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -5,6 +6,8 @@ from rest_framework import status
 from django.conf import settings
 from apps.agency.models import Agency, Job
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 from apps.agency.services import (
     get_user_agencies,
     get_verified_agency,
