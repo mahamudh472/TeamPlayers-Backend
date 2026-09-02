@@ -721,7 +721,7 @@ Success response (200):
 
 ## POST /api/v1/agency/jobs/<id>/gather-candidates/
 
-Description: Trigger AI candidate gathering. Creates a `CandidateGatheringSession` object and POSTs details to the configured n8n webhook URL.
+Description: Trigger AI candidate gathering. Creates a `CandidateGatheringSession` object and dispatches to configured provider (`n8n` or `apify` via `CANDIDATE_GATHERING_PROVIDER` in settings/environment).
 
 Auth: Required (Bearer access token)
 
@@ -739,6 +739,30 @@ Success response (201):
   "status": "processing",
   "created_at": "2026-07-25T10:00:00.123456Z",
   "updated_at": "2026-07-25T10:00:00.123456Z"
+}
+```
+
+Error responses:
+- 400: Configuration error (when provider is n8n and webhook URL is missing)
+```json
+{
+  "detail": "Candidate gathering service is not configured (missing webhook URL).",
+  "session_id": "8e3dc74a-2f47-4976-b605-4cfa6c757c91",
+  "status": "failed"
+}
+```
+- 400: Configuration error (when provider is apify and APIFY_API_KEY is missing)
+```json
+{
+  "detail": "Candidate gathering service is not configured (missing APIFY_API_KEY).",
+  "session_id": "8e3dc74a-2f47-4976-b605-4cfa6c757c91",
+  "status": "failed"
+}
+```
+- 404: Job not found or does not belong to agency
+```json
+{
+  "detail": "Job not found or does not belong to this agency."
 }
 ```
 

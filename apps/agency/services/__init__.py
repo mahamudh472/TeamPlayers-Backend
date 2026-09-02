@@ -38,10 +38,17 @@ from .meetings import get_agency_meetings, get_agency_meeting_counts, get_agency
 from .placements import get_agency_placements, get_agency_placement_counts, get_agency_placement_rate
 from .dashboard import get_dashboard_data
 from .analytics import get_analytics_data
-from .lead_generation import create_lead_generation_session, trigger_n8n_lead_generation
+from .lead_generation import (
+    create_lead_generation_session,
+    trigger_lead_generation,
+    trigger_n8n_lead_generation,
+    trigger_apify_lead_generation
+)
 from .candidate_gathering import (
     create_candidate_gathering_session,
+    trigger_candidate_gathering,
     trigger_n8n_candidate_gathering,
+    trigger_apify_candidate_gathering,
     trigger_gathered_candidates_processing
 )
 from .recommendations import get_recommendations_and_hot_candidates

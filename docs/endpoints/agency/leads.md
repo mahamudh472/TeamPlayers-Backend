@@ -397,7 +397,7 @@ Error responses:
 
 ## POST /api/v1/agency/leads/generate/
 
-Description: Trigger AI lead generation. Creates a `LeadGenerationSession` object and POSTs the details to the n8n workflow webhook defined in settings.
+Description: Trigger AI lead generation. Creates a `LeadGenerationSession` object and dispatches to the configured lead generation provider (`n8n` or `apify` via `LEAD_GENERATION_PROVIDER` in settings/environment).
 
 Auth: Required (Bearer access token)
 
@@ -442,10 +442,17 @@ Error responses:
 }
 ```
 
-- 400: Configuration error (N8N_WEBHOOK_URL is not set)
+- 400: Configuration error (when provider is n8n and N8N_WEBHOOK_URL is missing)
 ```json
 {
   "detail": "Lead generation service is not configured (missing N8N_WEBHOOK_URL)."
+}
+```
+
+- 400: Configuration error (when provider is apify and APIFY_API_KEY is missing)
+```json
+{
+  "detail": "Lead generation service is not configured (missing APIFY_API_KEY)."
 }
 ```
 

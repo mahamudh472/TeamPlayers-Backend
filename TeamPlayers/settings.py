@@ -294,6 +294,15 @@ ZOOM_REDIRECT_URI = os.getenv(
 N8N_WEBHOOK_URL = os.getenv('N8N_WEBHOOK_URL')
 N8N_CANDIDATE_WEBHOOK_URL = os.getenv('N8N_CANDIDATE_WEBHOOK_URL', '')
 
+# Lead generation & candidate gathering provider toggles ('n8n' or 'apify')
+LEAD_GENERATION_PROVIDER = os.getenv('LEAD_GENERATION_PROVIDER', 'n8n').lower()
+CANDIDATE_GATHERING_PROVIDER = os.getenv('CANDIDATE_GATHERING_PROVIDER', 'n8n').lower()
+
+# Apify settings
+APIFY_API_KEY = os.getenv('APIFY_API_KEY', '')
+APIFY_LEAD_ACTOR_ID = os.getenv('APIFY_LEAD_ACTOR_ID', 'apify/google-search-scraper')
+APIFY_CANDIDATE_ACTOR_ID = os.getenv('APIFY_CANDIDATE_ACTOR_ID', 'apify/google-search-scraper')
+
 # Logger config
 from .logger_conf import LOGGING
 

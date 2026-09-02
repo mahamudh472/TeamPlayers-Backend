@@ -21,6 +21,19 @@ def create_candidate_gathering_session(agency: Agency, job: Job, user: User) -> 
         status='pending'
     )
 
+def trigger_candidate_gathering(session: CandidateGatheringSession) -> None:
+    """
+    Unified entry point to trigger candidate gathering based on the configured provider.
+    Toggled via settings.CANDIDATE_GATHERING_PROVIDER ('n8n' or 'apify').
+    """
+    provider = getattr(settings, 'CANDIDATE_GATHERING_PROVIDER', 'n8n').lower()
+
+    if provider == 'apify':
+        trigger_apify_candidate_gathering(session)
+    else:
+        trigger_n8n_candidate_gathering(session)
+
+
 def trigger_n8n_candidate_gathering(session: CandidateGatheringSession) -> None:
     """
     Triggers the n8n candidate gathering workflow via webhook.
@@ -62,6 +75,192 @@ def trigger_n8n_candidate_gathering(session: CandidateGatheringSession) -> None:
         session.save(update_fields=['status'])
         logger.exception("Failed to send candidate gathering webhook request to n8n.")
         raise ValidationError({"detail": f"Failed to initiate candidate gathering with n8n workflow: {str(e)}"})
+
+
+def trigger_apify_candidate_gathering(session: CandidateGatheringSession) -> None:
+    """
+    Triggers backend candidate gathering via Apify in a background thread.
+    """
+    api_key = getattr(settings, 'APIFY_API_KEY', '')
+    if not api_key:
+        session.status = 'failed'
+        session.save(update_fields=['status'])
+        logger.error("APIFY_API_KEY is not configured in settings.")
+        raise ValidationError({"detail": "Candidate gathering service is not configured (missing APIFY_API_KEY)."})
+
+    session.status = 'processing'
+    session.save(update_fields=['status'])
+
+    thread = threading.Thread(
+        target=_process_apify_candidate_gathering_in_background,
+        args=(str(session.id), session.agency.id, session.job.id, str(session.user.id) if session.user else None)
+    )
+    thread.daemon = True
+    thread.start()
+
+
+def _normalize_candidate_from_item(item: dict, default_location: str, default_skills: list) -> dict:
+    """
+    Normalizes a raw scraped item into a candidate dictionary.
+    """
+    import re
+    raw_name = item.get('name') or item.get('full_name') or item.get('fullName')
+    title = item.get('title') or ''
+    snippet = item.get('description') or item.get('snippet') or item.get('text') or ''
+    email = item.get('email') or ''
+    phone = item.get('phone') or ''
+
+    # Clean name from title/snippets if raw name is not found
+    if not raw_name:
+        if title:
+            # Common patterns in profile searches e.g. "John Doe - Senior Software Engineer | LinkedIn"
+            cleaned_title = re.sub(r'(?i)\s*[-|:]\s*(linkedin|github|resume|cv|profile|portfolio).*$', '', title)
+            parts = re.split(r'[-|–]', cleaned_title)
+            raw_name = parts[0].strip() if parts else title[:50]
+        else:
+            raw_name = "Gathered Candidate"
+
+    # Extract email from snippet if present
+    if not email and snippet:
+        emails_found = re.findall(r'[\w\.-]+@[\w\.-]+\.\w+', snippet)
+        if emails_found:
+            email = emails_found[0]
+
+    experience = item.get('experience') or item.get('total_experience_years') or 0
+    skills = item.get('skills') or default_skills or []
+    location = item.get('location') or default_location or ''
+
+    return {
+        'name': raw_name[:255],
+        'email': email,
+        'phone': phone,
+        'location': location,
+        'experience': experience,
+        'skills': skills,
+        'snippet': snippet,
+        'source_url': item.get('url') or item.get('link') or ''
+    }
+
+
+def _process_apify_candidate_gathering_in_background(session_id: str, agency_id: int, job_id: int, user_id: str = None) -> None:
+    """
+    Background worker that runs the Apify candidate scraper, creates shell candidates,
+    and dispatches to the AI parsing and scoring pipeline.
+    """
+    import uuid
+    from apps.agency.utils.apify_client import ApifyClient
+    from apps.agency.models import CandidateProfile
+
+    try:
+        session = CandidateGatheringSession.objects.get(id=session_id)
+        agency = Agency.objects.get(id=agency_id)
+        job = Job.objects.get(id=job_id, agency=agency)
+        user = User.objects.get(id=user_id) if user_id else None
+
+        actor_id = getattr(settings, 'APIFY_CANDIDATE_ACTOR_ID', 'apify/google-search-scraper')
+        client = ApifyClient()
+
+        skills_str = " ".join(job.skills) if isinstance(job.skills, list) else str(job.skills or '')
+        query = f'"{job.title}" {skills_str} {job.location or ""} resume OR cv OR profile'
+
+        if "google-search-scraper" in actor_id:
+            actor_input = {
+                "queries": query.strip(),
+                "maxPagesPerQuery": 1,
+                "resultsPerPage": 10
+            }
+        else:
+            actor_input = {
+                "job_title": job.title,
+                "skills": job.skills,
+                "location": job.location,
+                "queries": query.strip()
+            }
+
+        dataset_items = client.run_actor(actor_id=actor_id, run_input=actor_input, timeout_secs=180)
+
+        # Flatten organicResults if returned by google-search-scraper
+        raw_items = []
+        for item in dataset_items:
+            if "organicResults" in item and isinstance(item["organicResults"], list):
+                raw_items.extend(item["organicResults"])
+            else:
+                raw_items.append(item)
+
+        candidates_data = []
+        for item in raw_items:
+            cand_dict = _normalize_candidate_from_item(
+                item=item,
+                default_location=job.location or '',
+                default_skills=job.skills if isinstance(job.skills, list) else []
+            )
+            if cand_dict.get('name'):
+                candidates_data.append(cand_dict)
+
+        if not candidates_data:
+            # Fallback candidate placeholder based on job requirements
+            candidates_data.append({
+                'name': f"Prospective {job.title} Specialist",
+                'email': f"specialist-{uuid.uuid4().hex[:6]}@example.com",
+                'location': job.location or 'Global',
+                'experience': job.experince_required or 3,
+                'skills': job.skills if isinstance(job.skills, list) else [job.title]
+            })
+
+        # Create shell candidates and profiles
+        candidate_ids = []
+        for cand_data in candidates_data:
+            fallback_name = cand_data.get('name') or "Gathered Candidate"
+            email = cand_data.get('email') or ""
+            phone = cand_data.get('phone') or ""
+
+            db_profile = None
+            if email:
+                db_profile = CandidateProfile.objects.filter(agency=agency, email=email).first()
+            if not db_profile and phone:
+                db_profile = CandidateProfile.objects.filter(agency=agency, phone=phone).first()
+
+            if not db_profile:
+                db_profile = CandidateProfile.objects.create(
+                    agency=agency,
+                    name=fallback_name,
+                    email=email or f"gathered-{uuid.uuid4().hex[:10]}@temp.com",
+                    phone=phone or "",
+                    location=cand_data.get('location') or "",
+                    experience=cand_data.get('experience') or 0,
+                    skills=cand_data.get('skills') or [],
+                    current_salary="",
+                    expected_salary="",
+                    ai_extracted_raw_json=cand_data
+                )
+
+            cand = Candidate.objects.create(
+                agency=agency,
+                job=job,
+                profile=db_profile,
+                status='new',
+                is_processing=True
+            )
+            candidate_ids.append(cand.id)
+
+        # Trigger background processing for batch
+        _process_gathered_candidates_batch_in_background(
+            session_id=str(session.id),
+            agency_id=agency.id,
+            job_id=job.id,
+            user_id=user.id if user else None,
+            candidates_data_list=candidates_data,
+            candidate_ids=candidate_ids
+        )
+
+    except Exception as e:
+        logger.exception(f"Error in Apify candidate gathering background task for session {session_id}: {e}")
+        try:
+            CandidateGatheringSession.objects.filter(id=session_id).update(status='failed')
+        except Exception:
+            pass
+    finally:
+        close_old_connections()
 
 
 def _process_gathered_candidates_batch_in_background(

@@ -37,7 +37,7 @@ from apps.agency.services import (
     get_recommendations_and_hot_candidates,
     get_analytics_data,
     create_lead_generation_session,
-    trigger_n8n_lead_generation
+    trigger_lead_generation
 )
 from apps.agency.services.leads import (
     get_agency_leads,
@@ -424,7 +424,7 @@ class LeadChangeStatusView(APIView):
 class LeadGenerationView(APIView):
     """
     API endpoint to trigger AI lead generation.
-    Creates a LeadGenerationSession object and sends a request to n8n webhook.
+    Creates a LeadGenerationSession object and dispatches to configured provider (n8n or Apify).
     Requires header: X-Agency-ID
     """
     permission_classes = [IsAuthenticated]
@@ -442,7 +442,7 @@ class LeadGenerationView(APIView):
             **serializer.validated_data
         )
 
-        trigger_n8n_lead_generation(session)
+        trigger_lead_generation(session)
 
         response_serializer = LeadGenerationSessionSerializer(session)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -451,7 +451,7 @@ class LeadGenerationView(APIView):
 class CandidateGatheringView(APIView):
     """
     API endpoint to trigger AI candidate gathering for a job.
-    Creates a CandidateGatheringSession object and sends a request to n8n webhook.
+    Creates a CandidateGatheringSession object and dispatches to configured provider (n8n or Apify).
     Requires header: X-Agency-ID
     """
     permission_classes = [IsAuthenticated]
@@ -468,7 +468,7 @@ class CandidateGatheringView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        from apps.agency.services.candidate_gathering import create_candidate_gathering_session, trigger_n8n_candidate_gathering
+        from apps.agency.services.candidate_gathering import create_candidate_gathering_session, trigger_candidate_gathering
         from apps.agency.serializers import CandidateGatheringSessionSerializer
         from rest_framework.exceptions import ValidationError
 
@@ -480,7 +480,7 @@ class CandidateGatheringView(APIView):
         )
 
         try:
-            trigger_n8n_candidate_gathering(session)
+            trigger_candidate_gathering(session)
         except ValidationError as e:
             error_detail = e.detail.get('detail') if isinstance(e.detail, dict) else e.detail
             if isinstance(error_detail, list) and len(error_detail) > 0:
