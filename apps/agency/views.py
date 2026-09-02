@@ -468,10 +468,11 @@ class CandidateGatheringView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        logger.info(f"[CandidateGatheringView] Triggered candidate gathering for Job ID {pk} ('{job.title}') by User {request.user.id}, Agency {agency_id}")
+
         from apps.agency.services.candidate_gathering import create_candidate_gathering_session, trigger_candidate_gathering
         from apps.agency.serializers import CandidateGatheringSessionSerializer
         from rest_framework.exceptions import ValidationError
-
 
         session = create_candidate_gathering_session(
             agency=agency,

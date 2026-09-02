@@ -102,7 +102,7 @@ def trigger_apify_candidate_gathering(session: CandidateGatheringSession) -> Non
 def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> dict:
     """
     Normalizes a raw scraped item into a candidate dictionary.
-    Strictly filters out non-human profile data, articles, and guide pages.
+    Strictly filters out non-human profile data, posts, job listings, articles, and guide pages.
     """
     import re
 
@@ -118,15 +118,18 @@ def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> d
     email = item.get('email') or item.get('mail') or ''
     phone = item.get('phone') or item.get('phoneNumber') or ''
 
-    # Filter non-profiles (e.g. "Resume Examples & Guide", "Job Description", etc.)
+    # Filter non-profiles (e.g. "Resume Examples & Guide", "Job Description", "Post", "Jobs", etc.)
     junk_patterns = [
         'resume example', 'resume template', 'guide for', 'job description',
         'top 10', 'interview question', 'salary for', 'salaries', 'hiring guide',
         'best resume', 'how to write', 'prospective', 'overview', 'developer resume',
-        'engineer resume', 'sample resume', 'cv template'
+        'engineer resume', 'sample resume', 'cv template', "'s post", "’s post",
+        "jobs in", "developer jobs", "engineer jobs", "employment", "openings",
+        "we are hiring", "job alert"
     ]
     combined_check = f"{title} {raw_name}".lower()
     if any(pattern in combined_check for pattern in junk_patterns):
+        logger.debug(f"[CandidateGathering] Item '{title}' matched junk pattern, skipping.")
         return None
 
     # Clean name from title/snippets if raw name is not found
@@ -137,12 +140,16 @@ def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> d
             parts = re.split(r'\s*[-|–|—|@|\|]\s*', cleaned_title)
             name_candidate = parts[0].strip() if parts else ''
             
+            # Clean emojis and special symbols
+            name_candidate = re.sub(r'[^\w\s\.\'-]', '', name_candidate).strip()
+
             # Ensure the extracted name candidate looks like a genuine human name (1 to 4 words, no digits)
             words = name_candidate.split()
             if 1 <= len(words) <= 4 and not any(char.isdigit() for char in name_candidate):
                 raw_name = name_candidate
 
     if not raw_name:
+        logger.debug(f"[CandidateGathering] No human name could be extracted from title='{title}', skipping.")
         return None
 
     # Discard if name itself contains non-person words
@@ -150,9 +157,10 @@ def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> d
     invalid_name_indicators = [
         'resume', 'guide', 'template', 'prospective', 'developer', 'engineer',
         'specialist', 'candidate', 'sample', 'example', 'jobs', 'salary', 'hiring',
-        'salaries', 'top 10', 'overview'
+        'salaries', 'top 10', 'overview', 'post', 'alert', 'employment'
     ]
     if any(ind in name_lower for ind in invalid_name_indicators):
+        logger.debug(f"[CandidateGathering] Name '{raw_name}' contained invalid indicator, skipping.")
         return None
 
     # Extract email from snippet if present
@@ -191,7 +199,7 @@ def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> d
     if isinstance(skills, str):
         skills = [s.strip() for s in skills.split(',') if s.strip()]
 
-    return {
+    result_dict = {
         'name': raw_name[:255],
         'email': email,
         'phone': phone,
@@ -202,6 +210,8 @@ def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> d
         'title': title,
         'source_url': url
     }
+    logger.info(f"[CandidateGathering] Extracted valid candidate: '{raw_name}', location='{candidate_loc}', experience={experience}y, url='{url}'")
+    return result_dict
 
 
 def _process_apify_candidate_gathering_in_background(session_id: str, agency_id: int, job_id: int, user_id: str = None) -> None:
@@ -233,6 +243,11 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
         search_text = f"{job.title} {top_skills} {loc_str}".strip()
         google_query = f'site:linkedin.com/in/ "{job.title}" {top_skills} {loc_str}'
 
+        logger.info(
+            f"[CandidateGathering] Session={session_id} | Starting Apify run. "
+            f"Job ID={job.id} ('{job.title}'), Location='{job.location}', Skills={job.skills}"
+        )
+
         # Dynamically format payload based on actor requirements
         if "google-search-scraper" in actor_id:
             actor_input = {
@@ -261,6 +276,8 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
                 "maxItems": 15
             }
 
+        logger.info(f"[CandidateGathering] Apify Actor ID: '{actor_id}' | Payload sent: {json.dumps(actor_input, default=str)}")
+
         dataset_items = client.run_actor(actor_id=actor_id, run_input=actor_input, timeout_secs=180)
 
         # Flatten organicResults if returned by google-search-scraper
@@ -271,6 +288,8 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
             else:
                 raw_items.append(item)
 
+        logger.info(f"[CandidateGathering] Received {len(dataset_items)} dataset items ({len(raw_items)} raw items) from Apify.")
+
         candidates_data = []
         for item in raw_items:
             cand_dict = _normalize_candidate_from_item(
@@ -280,8 +299,10 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
             if cand_dict and cand_dict.get('name'):
                 candidates_data.append(cand_dict)
 
+        logger.info(f"[CandidateGathering] Filtered and validated {len(candidates_data)} real candidate profiles out of {len(raw_items)} raw items.")
+
         if not candidates_data:
-            logger.info(f"No valid candidate profiles found via Apify for job {job.title} (session {session_id}).")
+            logger.info(f"[CandidateGathering] No valid candidate profiles found via Apify for job '{job.title}' (session {session_id}).")
             session.status = 'completed'
             session.save(update_fields=['status'])
             if user:
@@ -403,10 +424,11 @@ def _process_gathered_candidates_batch_in_background(
                 fake_indicators = [
                     'prospective', 'candidate', 'developer', 'engineer', 'resume',
                     'example', 'guide', 'template', 'specialist', 'sample',
-                    'salary', 'hiring', 'overview', 'top 10', 'how to', 'best'
+                    'salary', 'hiring', 'overview', 'top 10', 'how to', 'best',
+                    'post', 'employment', 'alert', 'jobs'
                 ]
                 if not parsed_name or any(ind in name_lower for ind in fake_indicators) or len(parsed_name.split()) < 2:
-                    logger.info(f"Discarding and deleting non-human candidate data: ID {cand_id} ('{parsed_name}')")
+                    logger.warning(f"[CandidateGathering] Discarding and deleting non-human candidate data: ID {cand_id} ('{parsed_name}')")
                     temp_prof = candidate.profile
                     candidate.delete()
                     if temp_prof and not Candidate.objects.filter(profile=temp_prof).exists():
