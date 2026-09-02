@@ -102,17 +102,22 @@ def trigger_apify_candidate_gathering(session: CandidateGatheringSession) -> Non
 def _normalize_candidate_from_item(item: dict, default_location: str, default_skills: list) -> dict:
     """
     Normalizes a raw scraped item into a candidate dictionary.
-    Filters out article/guide pages and strictly extracts human candidate profiles.
+    Supports dedicated LinkedIn actors (e.g. harvestapi, curious_coder, bebity, dev_coder)
+    as well as search-based LinkedIn scrapers.
     """
     import re
-    from django.utils.text import slugify
 
-    raw_name = item.get('name') or item.get('full_name') or item.get('fullName')
-    title = item.get('title') or ''
-    snippet = item.get('description') or item.get('snippet') or item.get('text') or ''
-    url = item.get('url') or item.get('link') or ''
-    email = item.get('email') or ''
-    phone = item.get('phone') or ''
+    # 1. Direct fields from dedicated LinkedIn scrapers
+    first_name = item.get('firstName') or item.get('first_name') or ''
+    last_name = item.get('lastName') or item.get('last_name') or ''
+    full_name_direct = f"{first_name} {last_name}".strip() if first_name or last_name else ''
+    raw_name = item.get('name') or item.get('full_name') or item.get('fullName') or full_name_direct
+
+    title = item.get('headline') or item.get('occupation') or item.get('current_title') or item.get('title') or ''
+    snippet = item.get('summary') or item.get('about') or item.get('description') or item.get('snippet') or item.get('text') or ''
+    url = item.get('profileUrl') or item.get('linkedinUrl') or item.get('profile_url') or item.get('url') or item.get('link') or ''
+    email = item.get('email') or item.get('mail') or ''
+    phone = item.get('phone') or item.get('phoneNumber') or ''
 
     # Filter non-profiles (e.g. "Resume Examples & Guide", "Job Description", etc.)
     junk_patterns = [
@@ -146,31 +151,40 @@ def _normalize_candidate_from_item(item: dict, default_location: str, default_sk
         if emails_found:
             email = emails_found[0]
 
-    # Extract experience from snippet or title
-    exp_match = re.search(r'(\d+)\+?\s*(?:years?|yrs?)(?:\s+of)?\s+(?:experience|exp)', f"{title} {snippet}", re.IGNORECASE)
-    if exp_match:
-        try:
-            experience = int(exp_match.group(1))
-        except (ValueError, TypeError):
-            experience = item.get('experience') or 3
-    else:
-        experience = item.get('experience') or 3
+    # Extract experience
+    experience = item.get('totalExperienceInYears') or item.get('experience') or item.get('total_experience_years')
+    if experience is None:
+        exp_match = re.search(r'(\d+)\+?\s*(?:years?|yrs?)(?:\s+of)?\s+(?:experience|exp)', f"{title} {snippet}", re.IGNORECASE)
+        if exp_match:
+            try:
+                experience = int(exp_match.group(1))
+            except (ValueError, TypeError):
+                experience = 3
+        else:
+            experience = 3
 
-    # Extract location from snippet if present, fallback to default
-    loc_match = re.search(r'([A-Za-z\s]+,\s*(?:[A-Za-z\s]{2,}|[A-Z]{2}))(?:\.|\s|·|-|,|\n)', snippet)
-    candidate_loc = loc_match.group(1).strip() if loc_match else default_location
+    # Extract location from direct field or snippet
+    direct_loc = item.get('location') or item.get('geoCountryName') or item.get('city')
+    if direct_loc and isinstance(direct_loc, str):
+        candidate_loc = direct_loc
+    else:
+        loc_match = re.search(r'([A-Za-z\s]+,\s*(?:[A-Za-z\s]{2,}|[A-Z]{2}))(?:\.|\s|·|-|,|\n)', snippet)
+        candidate_loc = loc_match.group(1).strip() if loc_match else default_location
+
     tech_and_junk = ['experience', 'designing', 'skills', 'engineer', 'developer', 'looking', 'years', 'django', 'fastapi', 'python', 'react', 'node', 'aws', 'sql', 'api']
     if any(bad_word in candidate_loc.lower() for bad_word in tech_and_junk):
         candidate_loc = default_location
 
     skills = item.get('skills') or default_skills or []
+    if isinstance(skills, str):
+        skills = [s.strip() for s in skills.split(',') if s.strip()]
 
     return {
         'name': raw_name[:255],
         'email': email,
         'phone': phone,
         'location': candidate_loc[:255] if candidate_loc else default_location,
-        'experience': experience,
+        'experience': int(experience) if experience is not None else 3,
         'skills': skills,
         'snippet': snippet,
         'title': title,
@@ -184,6 +198,7 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
     and dispatches to the AI parsing and scoring pipeline.
     """
     import uuid
+    from urllib.parse import quote_plus
     from apps.agency.utils.apify_client import ApifyClient
     from apps.agency.models import CandidateProfile
 
@@ -203,20 +218,35 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
         else:
             top_skills = ""
 
-        query = f'site:linkedin.com/in/ "{job.title}" {top_skills} {loc_str}'
+        search_text = f"{job.title} {top_skills} {job.location or ''}".strip()
+        google_query = f'site:linkedin.com/in/ "{job.title}" {top_skills} {loc_str}'
 
+        # Dynamically format payload based on actor requirements
         if "google-search-scraper" in actor_id:
             actor_input = {
-                "queries": query.strip(),
+                "queries": google_query.strip(),
                 "maxPagesPerQuery": 1,
                 "resultsPerPage": 15
             }
+        elif "harvestapi" in actor_id:
+            actor_input = {
+                "searchQuery": search_text,
+                "locations": [job.location] if job.location else [],
+                "maxItems": 15
+            }
+        elif "curious_coder" in actor_id or "people-search" in actor_id:
+            actor_input = {
+                "searchUrl": f"https://www.linkedin.com/search/results/people/?keywords={quote_plus(search_text)}",
+                "maxItems": 15
+            }
         else:
             actor_input = {
+                "searchQuery": search_text,
                 "job_title": job.title,
                 "skills": job.skills,
                 "location": job.location,
-                "queries": query.strip()
+                "queries": google_query.strip(),
+                "maxItems": 15
             }
 
         dataset_items = client.run_actor(actor_id=actor_id, run_input=actor_input, timeout_secs=180)
