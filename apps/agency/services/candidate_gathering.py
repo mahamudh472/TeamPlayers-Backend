@@ -235,13 +235,8 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
 
         # Build targeted query for LinkedIn candidate profiles
         loc_str = job.location or ''
-        if isinstance(job.skills, list) and job.skills:
-            top_skills = " ".join([f'"{s}"' for s in job.skills[:2]])
-        else:
-            top_skills = ""
-
-        search_text = f"{job.title} {top_skills} {loc_str}".strip()
-        google_query = f'site:linkedin.com/in/ "{job.title}" {top_skills} {loc_str}'
+        search_text = f"{job.title} {loc_str}".strip()
+        google_query = f'site:linkedin.com/in/ "{job.title}" {loc_str}'.strip()
 
         logger.info(
             f"[CandidateGathering] Session={session_id} | Starting Apify run. "
