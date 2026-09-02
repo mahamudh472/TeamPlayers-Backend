@@ -377,7 +377,17 @@ def process_candidate_ai_match(candidate, profile, job, agency) -> 'CandidateAIA
     try:
         # Parse the job description into a JobDescription Pydantic model
         job_parser = JobParser()
-        job_desc = job_parser.parse_job_description(job.description)
+        job_desc = job_parser.parse_job_description(job.description or job.title)
+
+        # Ensure fallback fields are populated from Job model
+        if not job_desc.job_title:
+            job_desc.job_title = job.title or ""
+        if not job_desc.location:
+            job_desc.location = job.location or ""
+        if job_desc.minimum_experience is None and job.experince_required is not None:
+            job_desc.minimum_experience = float(job.experince_required)
+        if not job_desc.required_skills and job.skills:
+            job_desc.required_skills = job.skills if isinstance(job.skills, list) else [job.skills]
 
         # Score the candidate against the Job
         scorer = CandidateScorer()

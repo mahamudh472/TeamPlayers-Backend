@@ -32,20 +32,34 @@ class JobParser:
         Returns:
             JobDescription
         """
+        import logging
+        logger = logging.getLogger(__name__)
 
-        response = self.client.responses.parse(
-            model=self.settings.openai_model,
-            input=[
-                {
-                    "role": "system",
-                    "content": self.system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": job_description,
-                },
-            ],
-            text_format=JobDescription,
-        )
+        if not job_description or not job_description.strip():
+            return JobDescription(raw_text=job_description or "")
 
-        return response.output_parsed
+        try:
+            # Truncate overly long text to prevent model max output tokens truncation
+            cleaned_text = job_description[:8000]
+
+            response = self.client.responses.parse(
+                model=self.settings.openai_model,
+                input=[
+                    {
+                        "role": "system",
+                        "content": self.system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": cleaned_text,
+                    },
+                ],
+                text_format=JobDescription,
+            )
+
+            return response.output_parsed
+        except Exception as e:
+            logger.error(f"Failed to parse job description via OpenAI: {e}")
+            return JobDescription(
+                raw_text=job_description[:4000]
+            )
