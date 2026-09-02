@@ -102,21 +102,41 @@ def trigger_apify_candidate_gathering(session: CandidateGatheringSession) -> Non
 def _normalize_candidate_from_item(item: dict, default_location: str, default_skills: list) -> dict:
     """
     Normalizes a raw scraped item into a candidate dictionary.
+    Filters out article/guide pages and strictly extracts human candidate profiles.
     """
     import re
+    from django.utils.text import slugify
+
     raw_name = item.get('name') or item.get('full_name') or item.get('fullName')
     title = item.get('title') or ''
     snippet = item.get('description') or item.get('snippet') or item.get('text') or ''
+    url = item.get('url') or item.get('link') or ''
     email = item.get('email') or ''
     phone = item.get('phone') or ''
+
+    # Filter non-profiles (e.g. "Resume Examples & Guide", "Job Description", etc.)
+    junk_patterns = [
+        'resume example', 'resume template', 'guide for', 'job description',
+        'top 10', 'interview question', 'salary for', 'salaries', 'hiring guide',
+        'best resume', 'how to write'
+    ]
+    if any(pattern in title.lower() for pattern in junk_patterns):
+        return None
 
     # Clean name from title/snippets if raw name is not found
     if not raw_name:
         if title:
-            # Common patterns in profile searches e.g. "John Doe - Senior Software Engineer | LinkedIn"
-            cleaned_title = re.sub(r'(?i)\s*[-|:]\s*(linkedin|github|resume|cv|profile|portfolio).*$', '', title)
-            parts = re.split(r'[-|–]', cleaned_title)
-            raw_name = parts[0].strip() if parts else title[:50]
+            # Common patterns in LinkedIn profile searches: "Firstname Lastname - Senior Python Developer | LinkedIn"
+            cleaned_title = re.sub(r'(?i)\s*[-|–|—|:]\s*(linkedin|github|resume|cv|profile|portfolio).*$', '', title)
+            parts = re.split(r'\s*[-|–|—|@|\|]\s*', cleaned_title)
+            name_candidate = parts[0].strip() if parts else ''
+            
+            # Ensure the extracted name candidate looks like a human name (1 to 4 words, no numbers/guide words)
+            words = name_candidate.split()
+            if 1 <= len(words) <= 4 and not any(char.isdigit() for char in name_candidate):
+                raw_name = name_candidate
+            else:
+                raw_name = "Gathered Candidate"
         else:
             raw_name = "Gathered Candidate"
 
@@ -126,19 +146,35 @@ def _normalize_candidate_from_item(item: dict, default_location: str, default_sk
         if emails_found:
             email = emails_found[0]
 
-    experience = item.get('experience') or item.get('total_experience_years') or 0
+    # Extract experience from snippet or title
+    exp_match = re.search(r'(\d+)\+?\s*(?:years?|yrs?)(?:\s+of)?\s+(?:experience|exp)', f"{title} {snippet}", re.IGNORECASE)
+    if exp_match:
+        try:
+            experience = int(exp_match.group(1))
+        except (ValueError, TypeError):
+            experience = item.get('experience') or 3
+    else:
+        experience = item.get('experience') or 3
+
+    # Extract location from snippet if present, fallback to default
+    loc_match = re.search(r'([A-Za-z\s]+,\s*(?:[A-Za-z\s]{2,}|[A-Z]{2}))(?:\.|\s|·|-|,|\n)', snippet)
+    candidate_loc = loc_match.group(1).strip() if loc_match else default_location
+    tech_and_junk = ['experience', 'designing', 'skills', 'engineer', 'developer', 'looking', 'years', 'django', 'fastapi', 'python', 'react', 'node', 'aws', 'sql', 'api']
+    if any(bad_word in candidate_loc.lower() for bad_word in tech_and_junk):
+        candidate_loc = default_location
+
     skills = item.get('skills') or default_skills or []
-    location = item.get('location') or default_location or ''
 
     return {
         'name': raw_name[:255],
         'email': email,
         'phone': phone,
-        'location': location,
+        'location': candidate_loc[:255] if candidate_loc else default_location,
         'experience': experience,
         'skills': skills,
         'snippet': snippet,
-        'source_url': item.get('url') or item.get('link') or ''
+        'title': title,
+        'source_url': url
     }
 
 
@@ -160,14 +196,20 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
         actor_id = getattr(settings, 'APIFY_CANDIDATE_ACTOR_ID', 'apify/google-search-scraper')
         client = ApifyClient()
 
-        skills_str = " ".join(job.skills) if isinstance(job.skills, list) else str(job.skills or '')
-        query = f'"{job.title}" {skills_str} {job.location or ""} resume OR cv OR profile'
+        # Build targeted query for LinkedIn candidate profiles
+        loc_str = f'"{job.location}"' if job.location else ''
+        if isinstance(job.skills, list) and job.skills:
+            top_skills = " ".join([f'"{s}"' for s in job.skills[:2]])
+        else:
+            top_skills = ""
+
+        query = f'site:linkedin.com/in/ "{job.title}" {top_skills} {loc_str}'
 
         if "google-search-scraper" in actor_id:
             actor_input = {
                 "queries": query.strip(),
                 "maxPagesPerQuery": 1,
-                "resultsPerPage": 10
+                "resultsPerPage": 15
             }
         else:
             actor_input = {
@@ -194,17 +236,18 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
                 default_location=job.location or '',
                 default_skills=job.skills if isinstance(job.skills, list) else []
             )
-            if cand_dict.get('name'):
+            if cand_dict and cand_dict.get('name'):
                 candidates_data.append(cand_dict)
 
         if not candidates_data:
             # Fallback candidate placeholder based on job requirements
             candidates_data.append({
-                'name': f"Prospective {job.title} Specialist",
-                'email': f"specialist-{uuid.uuid4().hex[:6]}@example.com",
+                'name': f"Prospective {job.title} Candidate",
+                'email': f"candidate-{uuid.uuid4().hex[:6]}@example.com",
                 'location': job.location or 'Global',
                 'experience': job.experince_required or 3,
-                'skills': job.skills if isinstance(job.skills, list) else [job.title]
+                'skills': job.skills if isinstance(job.skills, list) else [job.title],
+                'snippet': f"Experienced professional specializing in {job.title} with proficiency in {job.skills}."
             })
 
         # Create shell candidates and profiles
@@ -284,14 +327,22 @@ def _process_gathered_candidates_batch_in_background(
         for cand_id, cand_data in zip(candidate_ids, candidates_data_list):
             try:
                 candidate = Candidate.objects.get(id=cand_id)
-                candidate_json_str = json.dumps(cand_data, indent=2)
+                candidate_bio = (
+                    f"Candidate Full Name: {cand_data.get('name')}\n"
+                    f"Current / Target Role: {cand_data.get('title') or job.title}\n"
+                    f"Location: {cand_data.get('location') or job.location or ''}\n"
+                    f"Total Experience: {cand_data.get('experience', 0)} years\n"
+                    f"Technical Skills: {', '.join(cand_data.get('skills', [])) if isinstance(cand_data.get('skills'), list) else cand_data.get('skills')}\n"
+                    f"LinkedIn Profile: {cand_data.get('source_url', '')}\n"
+                    f"Candidate Bio and Summary:\n{cand_data.get('snippet', '')}\n"
+                )
 
                 # 1. Parse using LLM CandidateParser
                 profile = None
                 raw_json = None
                 try:
                     parser = CandidateParser()
-                    profile = parser.parse_candidate(candidate_json_str)
+                    profile = parser.parse_candidate(candidate_bio)
                     if profile:
                         raw_json = profile.model_dump()
                 except Exception as e:
@@ -305,7 +356,7 @@ def _process_gathered_candidates_batch_in_background(
                         email=cand_data.get('email'),
                         phone=cand_data.get('phone'),
                         location=cand_data.get('location'),
-                        total_experience_years=float(cand_data.get('experience') or cand_data.get('total_experience_years') or 0.0),
+                        total_experience_years=float(cand_data.get('experience') or 0.0),
                         technical_skills=cand_data.get('skills') or []
                     )
                     raw_json = profile.model_dump()
