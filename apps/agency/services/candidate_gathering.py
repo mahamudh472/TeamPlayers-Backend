@@ -191,8 +191,13 @@ def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> d
         if loc_match:
             candidate_loc = loc_match.group(1).strip()
 
-    tech_and_junk = ['experience', 'designing', 'skills', 'engineer', 'developer', 'looking', 'years', 'django', 'fastapi', 'python', 'react', 'node', 'aws', 'sql', 'api']
-    if any(bad_word in candidate_loc.lower() for bad_word in tech_and_junk):
+    tech_and_junk = [
+        'experience', 'designing', 'skills', 'engineer', 'developer', 'looking', 'years',
+        'django', 'fastapi', 'python', 'react', 'node', 'aws', 'sql', 'api', 'profile',
+        'linkedin', 'professional', 'community', 'connection', 'member', 'network',
+        'view', 'see', 'mutual', 'join', 'billion', "'s", "’s"
+    ]
+    if any(bad_word in candidate_loc.lower() for bad_word in tech_and_junk) or len(candidate_loc.split()) > 4:
         candidate_loc = ""
 
     skills = item.get('skills') or default_skills or []

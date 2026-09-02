@@ -2,7 +2,7 @@ from openai import OpenAI
 
 from apps.ai.clients.openai_client import get_openai_client
 from apps.ai.config import get_settings
-from apps.ai.models.job import JobDescription
+from apps.ai.models.job import JobDescription, JobDescriptionExtraction
 from apps.ai.prompts_loader import load_prompt
 
 
@@ -55,13 +55,16 @@ class JobParser:
                         "content": cleaned_text,
                     },
                 ],
-                text_format=JobDescription,
+                text_format=JobDescriptionExtraction,
             )
 
             result = response.output_parsed
             if result:
-                result.raw_text = job_description
-            return result
+                return JobDescription(
+                    **result.model_dump(),
+                    raw_text=job_description
+                )
+            return JobDescription(raw_text=job_description)
         except Exception as e:
             logger.error(f"Failed to parse job description via OpenAI: {e}")
             return JobDescription(
