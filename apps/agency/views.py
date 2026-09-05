@@ -359,7 +359,7 @@ class CandidateWebhookIngestView(APIView):
                 db_profile = CandidateProfile.objects.create(
                     agency=agency,
                     name=fallback_name,
-                    email=email or f"no-email-{uuid.uuid4().hex[:10]}@temp.com",
+                    email=email or None,
                     phone=phone or "",
                     location=cand_data.get('location') or "",
                     experience=0,

@@ -1,14 +1,17 @@
+import re
 import json
 import logging
 import requests
 import threading
+from urllib.parse import quote_plus
 from django.conf import settings
 from django.db import close_old_connections
 from rest_framework.exceptions import ValidationError
-from apps.agency.models import Agency, Job, CandidateGatheringSession, Candidate, Activity
+from apps.agency.models import Agency, Job, CandidateGatheringSession, Candidate, Activity, CandidateProfile
 from apps.accounts.models import User
 
 logger = logging.getLogger(__name__)
+
 
 def create_candidate_gathering_session(agency: Agency, job: Job, user: User) -> CandidateGatheringSession:
     """
@@ -20,6 +23,7 @@ def create_candidate_gathering_session(agency: Agency, job: Job, user: User) -> 
         user=user,
         status='pending'
     )
+
 
 def trigger_candidate_gathering(session: CandidateGatheringSession) -> None:
     """
@@ -99,14 +103,119 @@ def trigger_apify_candidate_gathering(session: CandidateGatheringSession) -> Non
     thread.start()
 
 
+def _normalize_candidate_from_profile_item(item: dict, default_skills: list = None) -> dict:
+    """
+    Normalizes a deep LinkedIn profile item from harvestapi/linkedin-profile-scraper.
+    Extracts full name, headline, summary, positions/work experience, education, skills, location, and contact.
+    """
+    first_name = item.get('firstName') or item.get('first_name') or ''
+    last_name = item.get('lastName') or item.get('last_name') or ''
+    full_name_direct = f"{first_name} {last_name}".strip() if first_name or last_name else ''
+    raw_name = item.get('fullName') or item.get('name') or item.get('full_name') or full_name_direct
+
+    headline = item.get('headline') or item.get('position') or item.get('occupation') or item.get('current_title') or ''
+    summary = item.get('summary') or item.get('about') or item.get('description') or ''
+    url = item.get('linkedinUrl') or item.get('profileUrl') or item.get('url') or ''
+    
+    # Extract email from emails list or direct field
+    raw_emails = item.get('emails') or []
+    email = None
+    if isinstance(raw_emails, list) and raw_emails:
+        email = raw_emails[0]
+    elif isinstance(raw_emails, str) and '@' in raw_emails:
+        email = raw_emails
+    else:
+        email = item.get('email') or item.get('mail') or None
+
+    # Check if candidate listed their email in their summary / bio
+    if not email and summary:
+        found_emails = re.findall(r'[\w\.-]+@[\w\.-]+\.\w+', summary)
+        if found_emails:
+            email = found_emails[0]
+
+    phone = item.get('phone') or item.get('phoneNumber') or ''
+
+    # Clean location
+    raw_loc = item.get('location') or item.get('geoCountryName') or item.get('city') or ''
+    if isinstance(raw_loc, dict):
+        raw_loc = raw_loc.get('name') or raw_loc.get('city') or ''
+    location = str(raw_loc).strip() if raw_loc else ""
+
+    # Parse work experience history
+    raw_positions = item.get('positions') or item.get('experience') or item.get('experiences') or []
+    experience_history = []
+    total_exp_years = 0.0
+
+    if isinstance(raw_positions, list):
+        for pos in raw_positions:
+            if isinstance(pos, dict):
+                comp_name = pos.get('companyName') or pos.get('company') or pos.get('title') or ''
+                pos_title = pos.get('title') or pos.get('position') or ''
+                dur_str = pos.get('duration') or pos.get('durationFormatted') or ''
+                desc = pos.get('description') or ''
+                experience_history.append({
+                    'company': comp_name,
+                    'title': pos_title,
+                    'duration': dur_str,
+                    'description': desc[:300] if desc else ''
+                })
+
+        # Calculate or extract total years
+        total_exp_years = item.get('totalExperienceInYears') or len(experience_history) * 1.5
+
+    # Parse education history
+    raw_education = item.get('educations') or item.get('education') or []
+    education_history = []
+    if isinstance(raw_education, list):
+        for edu in raw_education:
+            if isinstance(edu, dict):
+                school = edu.get('schoolName') or edu.get('school') or edu.get('institution') or ''
+                deg = edu.get('degreeName') or edu.get('degree') or ''
+                field = edu.get('fieldOfStudy') or edu.get('field_of_study') or ''
+                education_history.append({
+                    'school': school,
+                    'degree': deg,
+                    'field_of_study': field
+                })
+
+    # Parse skills
+    extracted_skills = []
+    raw_skills = item.get('skills') or []
+    if isinstance(raw_skills, list):
+        for s in raw_skills:
+            if isinstance(s, str) and s.strip():
+                extracted_skills.append(s.strip())
+            elif isinstance(s, dict) and s.get('name'):
+                extracted_skills.append(s['name'].strip())
+
+    if not extracted_skills and default_skills:
+        extracted_skills = default_skills
+
+    # Name sanity check
+    if not raw_name or len(raw_name.split()) < 2:
+        return None
+
+    return {
+        'name': raw_name[:100],
+        'email': email if email and '@' in email else None,
+        'phone': phone[:50] if phone else "",
+        'location': location[:100] if location else "",
+        'experience': int(total_exp_years) if total_exp_years else 0,
+        'skills': extracted_skills,
+        'snippet': summary[:1000] if summary else "",
+        'title': headline[:255] if headline else "",
+        'source_url': url,
+        'experience_history': experience_history,
+        'education_history': education_history,
+        'raw_profile_json': item
+    }
+
+
 def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> dict:
     """
-    Normalizes a raw scraped item into a candidate dictionary.
+    Normalizes a raw search result scraped item into a candidate dictionary.
     Strictly filters out non-human profile data, posts, job listings, articles, and guide pages.
     """
-    import re
-
-    # 1. Direct fields from dedicated LinkedIn scrapers
     first_name = item.get('firstName') or item.get('first_name') or ''
     last_name = item.get('lastName') or item.get('last_name') or ''
     full_name_direct = f"{first_name} {last_name}".strip() if first_name or last_name else ''
@@ -115,10 +224,10 @@ def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> d
     title = item.get('headline') or item.get('occupation') or item.get('current_title') or item.get('title') or ''
     snippet = item.get('summary') or item.get('about') or item.get('description') or item.get('snippet') or item.get('text') or ''
     url = item.get('profileUrl') or item.get('linkedinUrl') or item.get('profile_url') or item.get('url') or item.get('link') or ''
-    email = item.get('email') or item.get('mail') or ''
+    email = item.get('email') or item.get('mail') or None
     phone = item.get('phone') or item.get('phoneNumber') or ''
 
-    # Filter non-profiles (e.g. "Resume Examples & Guide", "Job Description", "Post", "Jobs", etc.)
+    # Filter non-profiles
     junk_patterns = [
         'resume example', 'resume template', 'guide for', 'job description',
         'top 10', 'interview question', 'salary for', 'salaries', 'hiring guide',
@@ -132,27 +241,20 @@ def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> d
         logger.debug(f"[CandidateGathering] Item '{title}' matched junk pattern, skipping.")
         return None
 
-    # Clean name from title/snippets if raw name is not found
-    if not raw_name:
-        if title:
-            # Common patterns in LinkedIn profile searches: "Firstname Lastname - Senior Python Developer | LinkedIn"
-            cleaned_title = re.sub(r'(?i)\s*[-|–|—|:]\s*(linkedin|github|resume|cv|profile|portfolio).*$', '', title)
-            parts = re.split(r'\s*[-|–|—|@|\|]\s*', cleaned_title)
-            name_candidate = parts[0].strip() if parts else ''
-            
-            # Clean emojis and special symbols
-            name_candidate = re.sub(r'[^\w\s\.\'-]', '', name_candidate).strip()
+    # Clean name from title if raw name is not found
+    if not raw_name and title:
+        cleaned_title = re.sub(r'(?i)\s*[-|–|—|:]\s*(linkedin|github|resume|cv|profile|portfolio).*$', '', title)
+        parts = re.split(r'\s*[-|–|—|@|\|]\s*', cleaned_title)
+        name_candidate = parts[0].strip() if parts else ''
+        name_candidate = re.sub(r'[^\w\s\.\'-]', '', name_candidate).strip()
+        words = name_candidate.split()
+        if 1 <= len(words) <= 4 and not any(char.isdigit() for char in name_candidate):
+            raw_name = name_candidate
 
-            # Ensure the extracted name candidate looks like a genuine human name (1 to 4 words, no digits)
-            words = name_candidate.split()
-            if 1 <= len(words) <= 4 and not any(char.isdigit() for char in name_candidate):
-                raw_name = name_candidate
-
-    if not raw_name:
-        logger.debug(f"[CandidateGathering] No human name could be extracted from title='{title}', skipping.")
+    if not raw_name or len(raw_name.split()) < 2:
         return None
 
-    # Discard if name itself contains non-person words
+    # Discard non-person indicators
     name_lower = raw_name.lower()
     invalid_name_indicators = [
         'resume', 'guide', 'template', 'prospective', 'developer', 'engineer',
@@ -160,7 +262,6 @@ def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> d
         'salaries', 'top 10', 'overview', 'post', 'alert', 'employment'
     ]
     if any(ind in name_lower for ind in invalid_name_indicators):
-        logger.debug(f"[CandidateGathering] Name '{raw_name}' contained invalid indicator, skipping.")
         return None
 
     # Extract email from snippet if present
@@ -173,15 +274,9 @@ def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> d
     experience = item.get('totalExperienceInYears') or item.get('experience') or item.get('total_experience_years')
     if experience is None:
         exp_match = re.search(r'(\d+)\+?\s*(?:years?|yrs?)(?:\s+of)?\s+(?:experience|exp)', f"{title} {snippet}", re.IGNORECASE)
-        if exp_match:
-            try:
-                experience = int(exp_match.group(1))
-            except (ValueError, TypeError):
-                experience = 0
-        else:
-            experience = 0
+        experience = int(exp_match.group(1)) if exp_match else 0
 
-    # Extract location from direct field or snippet ONLY if explicitly found (DO NOT default to job location)
+    # Extract location
     candidate_loc = ""
     direct_loc = item.get('location') or item.get('geoCountryName') or item.get('city')
     if direct_loc and isinstance(direct_loc, str):
@@ -191,43 +286,33 @@ def _normalize_candidate_from_item(item: dict, default_skills: list = None) -> d
         if loc_match:
             candidate_loc = loc_match.group(1).strip()
 
-    tech_and_junk = [
-        'experience', 'designing', 'skills', 'engineer', 'developer', 'looking', 'years',
-        'django', 'fastapi', 'python', 'react', 'node', 'aws', 'sql', 'api', 'profile',
-        'linkedin', 'professional', 'community', 'connection', 'member', 'network',
-        'view', 'see', 'mutual', 'join', 'billion', "'s", "’s"
-    ]
-    if any(bad_word in candidate_loc.lower() for bad_word in tech_and_junk) or len(candidate_loc.split()) > 4:
-        candidate_loc = ""
-
     skills = item.get('skills') or default_skills or []
     if isinstance(skills, str):
         skills = [s.strip() for s in skills.split(',') if s.strip()]
 
-    result_dict = {
-        'name': raw_name[:255],
-        'email': email,
-        'phone': phone,
-        'location': candidate_loc[:255] if candidate_loc else "",
+    return {
+        'name': raw_name[:100],
+        'email': email if email and '@' in email else None,
+        'phone': phone[:50] if phone else "",
+        'location': candidate_loc[:100] if candidate_loc else "",
         'experience': int(experience) if experience is not None else 0,
         'skills': skills,
         'snippet': snippet,
         'title': title,
-        'source_url': url
+        'source_url': url,
+        'experience_history': [],
+        'education_history': []
     }
-    logger.info(f"[CandidateGathering] Extracted valid candidate: '{raw_name}', location='{candidate_loc}', experience={experience}y, url='{url}'")
-    return result_dict
 
 
 def _process_apify_candidate_gathering_in_background(session_id: str, agency_id: int, job_id: int, user_id: str = None) -> None:
     """
-    Background worker that runs the Apify candidate scraper, creates shell candidates,
-    and dispatches to the AI parsing and scoring pipeline.
+    Background worker implementing a Two-Stage candidate gathering pipeline:
+    Stage 1: Google Search Scraper discovers candidate LinkedIn profile URLs.
+    Stage 2: LinkedIn Profile Scraper (harvestapi) fetches rich work history, education, skills, and contact details.
+    Stage 3: AI scoring, matching, and candidate ingestion (with nullable emails, no fake @temp.com).
     """
-    import uuid
-    from urllib.parse import quote_plus
     from apps.agency.utils.apify_client import ApifyClient
-    from apps.agency.models import CandidateProfile
 
     try:
         session = CandidateGatheringSession.objects.get(id=session_id)
@@ -235,74 +320,83 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
         job = Job.objects.get(id=job_id, agency=agency)
         user = User.objects.get(id=user_id) if user_id else None
 
-        actor_id = getattr(settings, 'APIFY_CANDIDATE_ACTOR_ID', 'apify/google-search-scraper')
         client = ApifyClient()
 
-        # Build targeted query for LinkedIn candidate profiles
+        # -------------------------------------------------------------
+        # STAGE 1: Discover Candidate LinkedIn Profile URLs via Google Search Scraper
+        # -------------------------------------------------------------
         loc_str = job.location or ''
-        search_text = f"{job.title} {loc_str}".strip()
-        google_query = f'site:linkedin.com/in/ "{job.title}" {loc_str}'.strip()
+        search_query = f'site:linkedin.com/in/ "{job.title}" {loc_str}'.strip()
+        search_actor_id = getattr(settings, 'APIFY_CANDIDATE_ACTOR_ID', 'apify/google-search-scraper')
 
         logger.info(
-            f"[CandidateGathering] Session={session_id} | Starting Apify run. "
-            f"Job ID={job.id} ('{job.title}'), Location='{job.location}', Skills={job.skills}"
+            f"[CandidateGathering] Stage 1: Starting Google Discovery. "
+            f"Job ID={job.id} ('{job.title}'), Query='{search_query}'"
         )
 
-        # Dynamically format payload based on actor requirements
-        if "google-search-scraper" in actor_id:
-            actor_input = {
-                "queries": google_query.strip(),
-                "maxPagesPerQuery": 1,
-                "resultsPerPage": 15
-            }
-        elif "harvestapi" in actor_id:
-            actor_input = {
-                "searchQuery": search_text,
-                "locations": [job.location] if job.location else [],
-                "maxItems": 15
-            }
-        elif "curious_coder" in actor_id or "people-search" in actor_id:
-            actor_input = {
-                "searchUrl": f"https://www.linkedin.com/search/results/people/?keywords={quote_plus(search_text)}",
-                "maxItems": 15
-            }
-        else:
-            actor_input = {
-                "searchQuery": search_text,
-                "job_title": job.title,
-                "skills": job.skills,
-                "location": job.location,
-                "queries": google_query.strip(),
-                "maxItems": 15
-            }
+        actor_input = {
+            "queries": search_query,
+            "maxPagesPerQuery": 1,
+            "resultsPerPage": 15
+        }
+        dataset_items = client.run_actor(actor_id=search_actor_id, run_input=actor_input, timeout_secs=180)
 
-        logger.info(f"[CandidateGathering] Apify Actor ID: '{actor_id}' | Payload sent: {json.dumps(actor_input, default=str)}")
-
-        dataset_items = client.run_actor(actor_id=actor_id, run_input=actor_input, timeout_secs=180)
-
-        # Flatten organicResults if returned by google-search-scraper
-        raw_items = []
+        raw_search_items = []
         for item in dataset_items:
             if "organicResults" in item and isinstance(item["organicResults"], list):
-                raw_items.extend(item["organicResults"])
+                raw_search_items.extend(item["organicResults"])
             else:
-                raw_items.append(item)
+                raw_search_items.append(item)
 
-        logger.info(f"[CandidateGathering] Received {len(dataset_items)} dataset items ({len(raw_items)} raw items) from Apify.")
+        logger.info(f"[CandidateGathering] Stage 1 returned {len(raw_search_items)} search items.")
 
+        # Collect and filter genuine LinkedIn profile URLs
+        linkedin_urls = []
+        stage1_candidates_map = {}
+
+        for item in raw_search_items:
+            cand_dict = _normalize_candidate_from_item(item, default_skills=job.skills if isinstance(job.skills, list) else [])
+            if cand_dict and cand_dict.get('source_url'):
+                url = cand_dict['source_url'].split('?')[0].rstrip('/')
+                if 'linkedin.com/in/' in url and url not in linkedin_urls:
+                    linkedin_urls.append(url)
+                    stage1_candidates_map[url] = cand_dict
+
+        logger.info(f"[CandidateGathering] Stage 1 extracted {len(linkedin_urls)} valid candidate LinkedIn URLs.")
+
+        # -------------------------------------------------------------
+        # STAGE 2: Deep Profile Enrichment via LinkedIn Profile Scraper
+        # -------------------------------------------------------------
+        profile_actor_id = getattr(settings, 'APIFY_LINKEDIN_PROFILE_ACTOR_ID', 'harvestapi/linkedin-profile-scraper')
         candidates_data = []
-        for item in raw_items:
-            cand_dict = _normalize_candidate_from_item(
-                item=item,
-                default_skills=job.skills if isinstance(job.skills, list) else []
-            )
-            if cand_dict and cand_dict.get('name'):
-                candidates_data.append(cand_dict)
 
-        logger.info(f"[CandidateGathering] Filtered and validated {len(candidates_data)} real candidate profiles out of {len(raw_items)} raw items.")
+        if linkedin_urls and profile_actor_id:
+            try:
+                logger.info(f"[CandidateGathering] Stage 2: Running profile scraper '{profile_actor_id}' for {len(linkedin_urls)} URLs.")
+                profile_input = {"queries": linkedin_urls}
+                profile_dataset = client.run_actor(actor_id=profile_actor_id, run_input=profile_input, timeout_secs=180)
+                
+                if profile_dataset and isinstance(profile_dataset, list):
+                    logger.info(f"[CandidateGathering] Stage 2: Received {len(profile_dataset)} full profile records from Apify.")
+                    for p_item in profile_dataset:
+                        normalized_p = _normalize_candidate_from_profile_item(
+                            p_item, default_skills=job.skills if isinstance(job.skills, list) else []
+                        )
+                        if normalized_p and normalized_p.get('name'):
+                            candidates_data.append(normalized_p)
+
+            except Exception as stage2_err:
+                logger.warning(f"[CandidateGathering] Stage 2 profile scraping failed ({stage2_err}), falling back to Stage 1 search results.")
+
+        # Fallback to Stage 1 data if Stage 2 produced no candidates
+        if not candidates_data and stage1_candidates_map:
+            logger.info("[CandidateGathering] Using Stage 1 parsed candidates as fallback.")
+            candidates_data = list(stage1_candidates_map.values())
+
+        logger.info(f"[CandidateGathering] Final validated candidates count: {len(candidates_data)}.")
 
         if not candidates_data:
-            logger.info(f"[CandidateGathering] No valid candidate profiles found via Apify for job '{job.title}' (session {session_id}).")
+            logger.info(f"[CandidateGathering] No candidates found for job '{job.title}' (session {session_id}).")
             session.status = 'completed'
             session.save(update_fields=['status'])
             if user:
@@ -311,7 +405,7 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
                     create_notification(
                         user=user,
                         title="Candidate Gathering Complete",
-                        message=f"Candidate gathering completed for job '{job.title}'. No new candidate profiles were found matching the search criteria.",
+                        message=f"Candidate gathering completed for job '{job.title}'. No new candidate profiles were found matching criteria.",
                         notification_type="candidate_gathering_complete",
                         source={"session_id": str(session_id), "job_id": job.id}
                     )
@@ -319,11 +413,13 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
                     pass
             return
 
-        # Create shell candidates and profiles
+        # -------------------------------------------------------------
+        # STAGE 3: Ingest Shell Profiles & Dispatch AI Processing
+        # -------------------------------------------------------------
         candidate_ids = []
         for cand_data in candidates_data:
             fallback_name = cand_data.get('name')
-            email = cand_data.get('email') or ""
+            email = cand_data.get('email') or None
             phone = cand_data.get('phone') or ""
 
             db_profile = None
@@ -331,13 +427,15 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
                 db_profile = CandidateProfile.objects.filter(agency=agency, email=email).first()
             if not db_profile and phone:
                 db_profile = CandidateProfile.objects.filter(agency=agency, phone=phone).first()
+            if not db_profile and fallback_name:
+                db_profile = CandidateProfile.objects.filter(agency=agency, name=fallback_name, email__isnull=True).first()
 
             if not db_profile:
                 db_profile = CandidateProfile.objects.create(
                     agency=agency,
                     name=fallback_name,
-                    email=email or f"gathered-{uuid.uuid4().hex[:10]}@temp.com",
-                    phone=phone or "",
+                    email=email,  # Nullable, NO fake @temp.com!
+                    phone=phone,
                     location=cand_data.get('location') or "",
                     experience=cand_data.get('experience') or 0,
                     skills=cand_data.get('skills') or [],
@@ -355,7 +453,7 @@ def _process_apify_candidate_gathering_in_background(session_id: str, agency_id:
             )
             candidate_ids.append(cand.id)
 
-        # Trigger background processing for batch
+        # Trigger background AI parsing and scoring batch
         _process_gathered_candidates_batch_in_background(
             session_id=str(session.id),
             agency_id=agency.id,
@@ -380,11 +478,10 @@ def _process_gathered_candidates_batch_in_background(
 ):
     """
     Processes a batch of gathered candidates in a background thread.
-    Uses AI parsing, scoring, and analysis, then stores them and notifies the recruiter.
-    Strictly verifies and discards any non-human candidate data.
+    Uses rich work history and AI parsing, scoring, and analysis.
     """
     from apps.ai.candidate_parser import CandidateParser
-    from apps.ai.models.candidate import CandidateProfile
+    from apps.ai.models.candidate import CandidateProfile as AICandidateProfile
     from apps.agency.services.candidates import process_candidate_ai_match
     
     try:
@@ -397,15 +494,38 @@ def _process_gathered_candidates_batch_in_background(
         for cand_id, cand_data in zip(candidate_ids, candidates_data_list):
             try:
                 candidate = Candidate.objects.get(id=cand_id)
-                candidate_bio = (
-                    f"Candidate Full Name: {cand_data.get('name')}\n"
-                    f"Current / Target Role: {cand_data.get('title') or job.title}\n"
-                    f"Location: {cand_data.get('location') or ''}\n"
-                    f"Total Experience: {cand_data.get('experience', 0)} years\n"
-                    f"Technical Skills: {', '.join(cand_data.get('skills', [])) if isinstance(cand_data.get('skills'), list) else cand_data.get('skills')}\n"
-                    f"LinkedIn Profile: {cand_data.get('source_url', '')}\n"
-                    f"Candidate Bio and Summary:\n{cand_data.get('snippet', '')}\n"
-                )
+
+                # Build rich candidate bio from Stage 2 enriched profile
+                bio_lines = [
+                    f"Candidate Full Name: {cand_data.get('name')}",
+                    f"Headline / Current Role: {cand_data.get('title') or job.title}",
+                    f"Location: {cand_data.get('location') or ''}",
+                    f"Total Experience: {cand_data.get('experience', 0)} years",
+                    f"Technical Skills: {', '.join(cand_data.get('skills', [])) if isinstance(cand_data.get('skills'), list) else cand_data.get('skills')}",
+                    f"LinkedIn Profile: {cand_data.get('source_url', '')}",
+                ]
+
+                if cand_data.get('experience_history'):
+                    bio_lines.append("\nWork Experience History:")
+                    for exp in cand_data['experience_history']:
+                        comp = exp.get('company', '')
+                        pos = exp.get('title', '')
+                        dur = exp.get('duration', '')
+                        desc = exp.get('description', '')
+                        bio_lines.append(f"- {pos} at {comp} ({dur}) {': ' + desc if desc else ''}")
+
+                if cand_data.get('education_history'):
+                    bio_lines.append("\nEducation History:")
+                    for edu in cand_data['education_history']:
+                        deg = edu.get('degree', '')
+                        inst = edu.get('school', '')
+                        field = edu.get('field_of_study', '')
+                        bio_lines.append(f"- {deg} in {field} from {inst}".strip())
+
+                if cand_data.get('snippet'):
+                    bio_lines.append(f"\nAbout & Summary:\n{cand_data.get('snippet')}")
+
+                candidate_bio = "\n".join(bio_lines)
 
                 # 1. Parse using LLM CandidateParser
                 profile = None
@@ -418,7 +538,7 @@ def _process_gathered_candidates_batch_in_background(
                 except Exception as e:
                     logger.error(f"Failed to parse candidate JSON using LLM for candidate {cand_id}: {e}")
 
-                # Strict Human Check: If parsed name looks fake/non-human, discard and delete object
+                # Strict Human Check
                 parsed_name = (profile.full_name if profile else cand_data.get('name') or "").strip()
                 name_lower = parsed_name.lower()
                 fake_indicators = [
@@ -428,19 +548,19 @@ def _process_gathered_candidates_batch_in_background(
                     'post', 'employment', 'alert', 'jobs'
                 ]
                 if not parsed_name or any(ind in name_lower for ind in fake_indicators) or len(parsed_name.split()) < 2:
-                    logger.warning(f"[CandidateGathering] Discarding and deleting non-human candidate data: ID {cand_id} ('{parsed_name}')")
+                    logger.warning(f"[CandidateGathering] Discarding non-human candidate data: ID {cand_id} ('{parsed_name}')")
                     temp_prof = candidate.profile
                     candidate.delete()
                     if temp_prof and not Candidate.objects.filter(profile=temp_prof).exists():
                         temp_prof.delete()
                     continue
 
-                # Fallback to default profile if LLM parsing failed
+                # Fallback profile
                 if not profile:
-                    profile = CandidateProfile(
+                    profile = AICandidateProfile(
                         full_name=parsed_name,
-                        email=cand_data.get('email'),
-                        phone=cand_data.get('phone'),
+                        email=cand_data.get('email') or None,
+                        phone=cand_data.get('phone') or "",
                         location=cand_data.get('location') or "",
                         total_experience_years=float(cand_data.get('experience') or 0.0),
                         technical_skills=cand_data.get('skills') or []
@@ -448,9 +568,8 @@ def _process_gathered_candidates_batch_in_background(
                     raw_json = profile.model_dump()
 
                 # Update or merge CandidateProfile
-                from apps.agency.models import CandidateProfile
-                email = profile.email or ""
-                phone = profile.phone or ""
+                email = profile.email or cand_data.get('email') or None
+                phone = profile.phone or cand_data.get('phone') or ""
 
                 db_profile = None
                 if email:
@@ -470,8 +589,8 @@ def _process_gathered_candidates_batch_in_background(
 
                 # Update db_profile fields with parsed details
                 db_profile.name = profile.full_name or db_profile.name
-                db_profile.email = profile.email or db_profile.email
-                db_profile.phone = profile.phone or db_profile.phone or ""
+                db_profile.email = email  # Real email or None
+                db_profile.phone = phone or db_profile.phone or ""
                 db_profile.location = profile.location or db_profile.location or ""
                 db_profile.experience = int(profile.total_experience_years) if profile.total_experience_years is not None else 0
                 db_profile.skills = profile.technical_skills or []
@@ -496,13 +615,12 @@ def _process_gathered_candidates_batch_in_background(
                     model_id=candidate.id,
                     agency=agency,
                     user=user,
-                    summary=f"Gathered and processed candidate profile for {candidate.name}"
+                    summary=f"Gathered and enriched candidate profile for {candidate.name}"
                 )
 
                 processed_count += 1
             except Exception as single_err:
                 logger.error(f"Error processing gathered candidate {cand_id}: {single_err}")
-                # Ensure the candidate doesn't get stuck in processing
                 try:
                     Candidate.objects.filter(id=cand_id).update(is_processing=False)
                 except Exception:
@@ -517,14 +635,14 @@ def _process_gathered_candidates_batch_in_background(
             except CandidateGatheringSession.DoesNotExist:
                 pass
 
-        # 6. Send notification to the initiating user
+        # 6. Send notification to recruiter
         if user:
             from apps.notifications.services.notifications import create_notification
             try:
                 create_notification(
                     user=user,
                     title="Candidate Gathering Complete",
-                    message=f"Candidate gathering completed. {processed_count} candidates processed successfully for job '{job.title}'.",
+                    message=f"Candidate gathering completed. {processed_count} enriched candidates processed successfully for job '{job.title}'.",
                     notification_type="candidate_gathering_complete",
                     source={"session_id": str(session_id) if session_id else None, "job_id": job.id}
                 )

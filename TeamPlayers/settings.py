@@ -302,6 +302,7 @@ CANDIDATE_GATHERING_PROVIDER = os.getenv('CANDIDATE_GATHERING_PROVIDER', 'n8n').
 APIFY_API_KEY = os.getenv('APIFY_API_KEY', '')
 APIFY_LEAD_ACTOR_ID = os.getenv('APIFY_LEAD_ACTOR_ID', 'apify/google-search-scraper')
 APIFY_CANDIDATE_ACTOR_ID = os.getenv('APIFY_CANDIDATE_ACTOR_ID', 'apify/google-search-scraper')
+APIFY_LINKEDIN_PROFILE_ACTOR_ID = os.getenv('APIFY_LINKEDIN_PROFILE_ACTOR_ID', 'harvestapi/linkedin-profile-scraper')
 
 # Logger config
 from .logger_conf import LOGGING

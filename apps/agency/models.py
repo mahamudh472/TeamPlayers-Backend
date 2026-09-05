@@ -214,7 +214,7 @@ class Job(models.Model):
 class CandidateProfile(models.Model):
     agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='candidate_profiles')
     name = models.CharField(max_length=100)
-    email = models.EmailField()
+    email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=50, blank=True, null=True)
     location = models.CharField(max_length=100, blank=True, null=True)
     experience = models.IntegerField(default=0)
@@ -303,7 +303,7 @@ class CandidateVersion(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='candidate_versions')
 
     name = models.CharField(max_length=100)
-    email = models.EmailField()
+    email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=50, blank=True, null=True)
     location = models.CharField(max_length=100, blank=True, null=True)
     experience = models.IntegerField(default=0)

@@ -598,12 +598,11 @@ def create_candidate_from_resume(agency: Agency, job, cv_file, user=None) -> Can
     # 2. Derive default candidate name from the file name
     default_name = Path(cv_file.name).stem.replace('_', ' ').replace('-', ' ').title()
 
-    # Create temporary email/phone profile
-    temp_email = f"no-email-{uuid.uuid4().hex[:10]}@temp.com"
+    # Create initial profile
     profile = CandidateProfile.objects.create(
         agency=agency,
         name=default_name,
-        email=temp_email,
+        email=None,
         resume=file_path
     )
 
@@ -722,7 +721,7 @@ def _process_multiple_candidates_in_background(text, agency_id, job_id, user_id=
                     db_profile = CandidateProfile.objects.create(
                         agency=agency,
                         name=profile_data.full_name or "Parsed Candidate",
-                        email=email or f"no-email-{uuid.uuid4().hex[:10]}@temp.com",
+                        email=email or None,
                         phone=phone or ""
                     )
 
