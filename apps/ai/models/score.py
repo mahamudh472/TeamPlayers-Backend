@@ -22,3 +22,5 @@ class CandidateScore(BaseModel):
     salary_alignment: MatchDetail = Field(default_factory=MatchDetail)
 
     location_alignment: MatchDetail = Field(default_factory=MatchDetail)
+
+    certification_match: MatchDetail = Field(default_factory=MatchDetail)

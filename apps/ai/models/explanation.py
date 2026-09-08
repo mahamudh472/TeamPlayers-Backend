@@ -40,6 +40,8 @@ class AIExplanation(BaseModel):
 
     location_alignment: ExplanationItem
 
+    certification_match: ExplanationItem
+
     key_strengths: List[str] = Field(default_factory=list)
 
     missing_requirements: List[str] = Field(default_factory=list)

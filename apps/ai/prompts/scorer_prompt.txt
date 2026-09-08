@@ -22,6 +22,7 @@ Required matching categories:
 * experience_match
 * salary_alignment
 * location_alignment
+* certification_match
 
 If a category cannot be evaluated:
 

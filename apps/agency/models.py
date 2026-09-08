@@ -200,6 +200,13 @@ class Job(models.Model):
         ('filled', 'Filled')], default='open')
     description_file = models.FileField(upload_to='job_descriptions', blank=True, null=True)
 
+    # Score priority weights for overall candidate score calculation (summing to 100)
+    skills_weight = models.FloatField(default=20.0)
+    experience_weight = models.FloatField(default=20.0)
+    salary_weight = models.FloatField(default=20.0)
+    location_weight = models.FloatField(default=20.0)
+    certification_weight = models.FloatField(default=20.0)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -333,11 +340,12 @@ class CandidateAIAnalysis(models.Model):
     key_strength = models.JSONField(default=list, blank=True, null=True)
     potential_concerns = models.JSONField(default=list, blank=True, null=True)
 
-    # AI match breackdown
+    # AI match breakdown
     skills_match = models.FloatField(default=0) 
     experience_match = models.FloatField(default=0)
     salary_match = models.FloatField(default=0)
     location_match = models.FloatField(default=0)
+    certification_match = models.FloatField(default=0)
     overall_match_percentage = models.FloatField(default=0) 
     
     created_at = models.DateTimeField(auto_now_add=True)

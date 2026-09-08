@@ -412,7 +412,28 @@ def process_candidate_ai_match(candidate, profile, job, agency) -> 'CandidateAIA
         exp_score = score.experience_match.score if (score and score.experience_match) else 0.0
         sal_score = score.salary_alignment.score if (score and score.salary_alignment) else 0.0
         loc_score = score.location_alignment.score if (score and score.location_alignment) else 0.0
-        overall_match = (skills_score + exp_score + sal_score + loc_score) / 4.0
+        cert_score = score.certification_match.score if (score and score.certification_match) else 0.0
+
+        # Calculate weighted overall match based on job priorities
+        w_skills = job.skills_weight if getattr(job, 'skills_weight', None) is not None else 20.0
+        w_exp = job.experience_weight if getattr(job, 'experience_weight', None) is not None else 20.0
+        w_sal = job.salary_weight if getattr(job, 'salary_weight', None) is not None else 20.0
+        w_loc = job.location_weight if getattr(job, 'location_weight', None) is not None else 20.0
+        w_cert = job.certification_weight if getattr(job, 'certification_weight', None) is not None else 20.0
+        total_weight = w_skills + w_exp + w_sal + w_loc + w_cert
+
+        if total_weight > 0:
+            overall_match = (
+                (skills_score * w_skills) +
+                (exp_score * w_exp) +
+                (sal_score * w_sal) +
+                (loc_score * w_loc) +
+                (cert_score * w_cert)
+            ) / total_weight
+        else:
+            overall_match = (skills_score + exp_score + sal_score + loc_score + cert_score) / 5.0
+
+        overall_match = round(overall_match, 2)
 
         concerns = []
         if explanation:
@@ -431,6 +452,7 @@ def process_candidate_ai_match(candidate, profile, job, agency) -> 'CandidateAIA
             experience_match=exp_score,
             salary_match=sal_score,
             location_match=loc_score,
+            certification_match=cert_score,
             overall_match_percentage=overall_match
         )
     except Exception as e:
@@ -446,6 +468,7 @@ def process_candidate_ai_match(candidate, profile, job, agency) -> 'CandidateAIA
             experience_match=0.0,
             salary_match=0.0,
             location_match=0.0,
+            certification_match=0.0,
             overall_match_percentage=0.0
         )
 

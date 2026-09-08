@@ -54,6 +54,11 @@ Success response (200):
       "job_type": "remote",
       "status": "open",
       "description_file": null,
+      "skills_weight": 30.0,
+      "experience_weight": 25.0,
+      "salary_weight": 15.0,
+      "location_weight": 15.0,
+      "certification_weight": 15.0,
       "applicants": 12,
       "shortlisted": 4,
       "interviewed": 2,
@@ -78,7 +83,7 @@ Error responses:
 
 ## POST /api/v1/agency/jobs/
 
-Description: Create a new job associated with the agency and client.
+Description: Create a new job associated with the agency and client. If scoring priority weights (`skills_weight`, `experience_weight`, `salary_weight`, `location_weight`, `certification_weight`) are omitted, AI analyzes the job description to calculate them automatically.
 
 Auth: Required (Bearer access token)
 
@@ -118,6 +123,11 @@ Success response (201):
   "job_type": "remote",
   "status": "open",
   "description_file": null,
+  "skills_weight": 30.0,
+  "experience_weight": 25.0,
+  "salary_weight": 15.0,
+  "location_weight": 15.0,
+  "certification_weight": 15.0,
   "applicants": 12,
   "shortlisted": 4,
   "interviewed": 2,
@@ -164,6 +174,11 @@ Success response (200):
   "job_type": "remote",
   "status": "open",
   "description_file": null,
+  "skills_weight": 30.0,
+  "experience_weight": 25.0,
+  "salary_weight": 15.0,
+  "location_weight": 15.0,
+  "certification_weight": 15.0,
   "applicants": 12,
   "shortlisted": 4,
   "interviewed": 2,
@@ -182,7 +197,7 @@ Error responses:
 
 ## PATCH /api/v1/agency/jobs/<id>/
 
-Description: Partially update details of a single job.
+Description: Partially update details of a single job, including manual adjustments to scoring weights (`skills_weight`, `experience_weight`, `salary_weight`, `location_weight`, `certification_weight`). Updating weights automatically recalculates the overall match scores of candidates applied to this job.
 
 Auth: Required (Bearer access token)
 
@@ -194,7 +209,9 @@ Request JSON:
 
 ```json
 {
-  "status": "closed"
+  "status": "closed",
+  "skills_weight": 35.0,
+  "certification_weight": 10.0
 }
 ```
 
@@ -214,6 +231,11 @@ Success response (200):
   "job_type": "remote",
   "status": "closed",
   "description_file": null,
+  "skills_weight": 35.0,
+  "experience_weight": 25.0,
+  "salary_weight": 15.0,
+  "location_weight": 15.0,
+  "certification_weight": 10.0,
   "applicants": 12,
   "shortlisted": 4,
   "interviewed": 2,
@@ -223,6 +245,14 @@ Success response (200):
 ```
 
 Error responses:
+- 400: Weight sum validation error
+```json
+{
+  "non_field_errors": [
+    "The sum of priority weights must equal 100. Current sum is 95.0."
+  ]
+}
+```
 - 404: Job not found
 ```json
 { "detail": "Job not found" }

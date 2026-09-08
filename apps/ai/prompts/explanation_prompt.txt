@@ -10,6 +10,7 @@ Explain:
 - Experience Match
 - Salary Alignment
 - Location Alignment
+- Certification Match
 
 Also provide:
 

@@ -114,6 +114,7 @@ Success response (200):
     "experience_match": 85.0,
     "salary_match": 80.0,
     "location_match": 100.0,
+    "certification_match": 85.0,
     "overall_match_percentage": 85.0
   },
   "job_info": {
@@ -278,6 +279,7 @@ Success response (200):
     "experience_match": 85.0,
     "salary_match": 80.0,
     "location_match": 100.0,
+    "certification_match": 85.0,
     "overall_match_percentage": 85.0
   },
   "job_info": {
@@ -572,6 +574,7 @@ Success response (201):
     "experience_match": 85.0,
     "salary_match": 80.0,
     "location_match": 100.0,
+    "certification_match": 85.0,
     "overall_match_percentage": 85.0
   },
   "job_info": {
@@ -664,6 +667,7 @@ Success response (201):
       "experience_match": 85.0,
       "salary_match": 80.0,
       "location_match": 100.0,
+      "certification_match": 85.0,
       "overall_match_percentage": 85.0
     },
     "job_info": {

@@ -325,6 +325,11 @@ class JobSerializer(serializers.ModelSerializer):
             'job_type',
             'status',
             'description_file',
+            'skills_weight',
+            'experience_weight',
+            'salary_weight',
+            'location_weight',
+            'certification_weight',
             'applicants',
             'shortlisted',
             'interviewed',
@@ -350,6 +355,45 @@ class JobSerializer(serializers.ModelSerializer):
         client = attrs.get('client')
         if agency and client and client.agency != agency:
             raise serializers.ValidationError({"client": "Client does not belong to this agency."})
+
+        weight_fields = [
+            'skills_weight',
+            'experience_weight',
+            'salary_weight',
+            'location_weight',
+            'certification_weight'
+        ]
+
+        # Check each weight individual bounds
+        for field in weight_fields:
+            if field in attrs and attrs[field] is not None:
+                if attrs[field] < 0 or attrs[field] > 100:
+                    raise serializers.ValidationError({field: "Weight must be between 0 and 100."})
+
+        # Check sum of weights if any weight field is being updated or set
+        has_any_weight = any(field in attrs for field in weight_fields)
+        if has_any_weight:
+            if self.instance:
+                # For update, pull current instance value for missing fields
+                s_w = attrs.get('skills_weight', getattr(self.instance, 'skills_weight', 20.0))
+                e_w = attrs.get('experience_weight', getattr(self.instance, 'experience_weight', 20.0))
+                sa_w = attrs.get('salary_weight', getattr(self.instance, 'salary_weight', 20.0))
+                l_w = attrs.get('location_weight', getattr(self.instance, 'location_weight', 20.0))
+                c_w = attrs.get('certification_weight', getattr(self.instance, 'certification_weight', 20.0))
+            else:
+                # For creation with explicit weights
+                s_w = attrs.get('skills_weight', 20.0)
+                e_w = attrs.get('experience_weight', 20.0)
+                sa_w = attrs.get('salary_weight', 20.0)
+                l_w = attrs.get('location_weight', 20.0)
+                c_w = attrs.get('certification_weight', 20.0)
+
+            total_weight = round(float(s_w) + float(e_w) + float(sa_w) + float(l_w) + float(c_w), 2)
+            if total_weight != 100.0:
+                raise serializers.ValidationError({
+                    "non_field_errors": [f"The sum of priority weights must equal 100. Current sum is {total_weight}."]
+                })
+
         return attrs
 
 
@@ -405,6 +449,7 @@ class CandidateAIAnalysisSerializer(serializers.ModelSerializer):
             'experience_match',
             'salary_match',
             'location_match',
+            'certification_match',
             'overall_match_percentage'
         ]
         read_only_fields = fields
