@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Integration, ZoomToken
+from .models import Integration, ZoomToken, MicrosoftToken
 
 
 @admin.register(Integration)
@@ -12,5 +12,11 @@ class IntegrationAdmin(admin.ModelAdmin):
 
 @admin.register(ZoomToken)
 class ZoomTokenAdmin(admin.ModelAdmin):
+    list_display = ('integration', 'token_type', 'expires_at')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(MicrosoftToken)
+class MicrosoftTokenAdmin(admin.ModelAdmin):
     list_display = ('integration', 'token_type', 'expires_at')
     readonly_fields = ('created_at', 'updated_at')

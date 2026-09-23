@@ -10,6 +10,9 @@ Back to index: [ENDPOINT_LIST.md](../ENDPOINT_LIST.md)
 - GET  `/api/v1/integrations/zoom/callback/`
 - POST `/api/v1/integrations/zoom/disconnect/`
 - POST `/api/v1/integrations/zoom/meetings/create/`
+- GET  `/api/v1/integrations/microsoft/connect/`
+- GET  `/api/v1/integrations/microsoft/callback/`
+- POST `/api/v1/integrations/microsoft/disconnect/`
 
 ---
 
@@ -56,7 +59,7 @@ Error responses:
 
 ## GET /api/v1/integrations/available/
 
-Description: List all available integrations (Zoom, Outlook, Google Calendar) and whether they are connected or not for the authenticated user within the specified agency.
+Description: List all available integrations (Zoom, Microsoft, Google Calendar) and whether they are connected or not for the authenticated user within the specified agency.
 
 Auth: Required
 
@@ -86,8 +89,8 @@ Success response (200):
   },
   {
     "id": null,
-    "provider": "outlook",
-    "name": "Outlook",
+    "provider": "microsoft",
+    "name": "Microsoft",
     "is_connected": false,
     "connected_at": null,
     "metadata": {},
@@ -310,3 +313,117 @@ curl -X POST http://localhost:8000/api/v1/integrations/zoom/meetings/create/ \
 | `ZOOM_SECRET_TOKEN` | Zoom webhook verification token |
 | `FRONTEND_URL` | Frontend base URL for post-OAuth redirect |
 | `BACKEND_URL` | Backend base URL |
+
+---
+
+## GET /api/v1/integrations/microsoft/connect/
+
+Description: Generate the Microsoft OAuth 2.0 authorization URL. The frontend should redirect the user to this URL to begin the Microsoft account connection flow.
+
+Auth: Required
+
+Headers:
+
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>`
+
+Success response (200):
+
+```json
+{
+  "auth_url": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=XXX&response_type=code&redirect_uri=XXX&response_mode=query&scope=offline_access+User.Read+Mail.ReadWrite+Mail.Send+Calendars.ReadWrite&prompt=consent&state=user_id:agency_id"
+}
+```
+
+Error responses:
+
+- 400: Missing agency header
+```json
+{ "error": "X-Agency-ID header is required" }
+```
+
+Notes: The `state` parameter encodes `user_id:agency_id` so the OAuth callback can identify who authorized the connection. The frontend should redirect the user to the returned `auth_url`.
+
+---
+
+## GET /api/v1/integrations/microsoft/callback/
+
+Description: OAuth callback endpoint that Microsoft redirects to after user consent. Exchanges the authorization code for tokens, retrieves user profile info from Microsoft Graph, stores the tokens, and redirects to the frontend.
+
+Auth: Not required (public — called by Microsoft redirect)
+
+Query Parameters:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `code` | string | Authorization code from Microsoft |
+| `state` | string | `user_id:agency_id` passed during authorization |
+
+Success: Redirects to `{FRONTEND_URL}/integrations?status=success&provider=microsoft`
+
+Error: Redirects to `{FRONTEND_URL}/integrations?status=error&message=<reason>`
+
+Possible error messages:
+
+- `missing_code` — No authorization code in callback
+- `missing_state` — No state parameter
+- `invalid_state` — State parameter format is invalid
+- `invalid_user_or_agency` — User or agency not found
+- `token_exchange_failed` — Failed to exchange code for tokens with Microsoft
+
+Notes: This endpoint is registered as the Redirect URI in Microsoft Entra Admin Center. It should not be called directly by the frontend.
+
+---
+
+## POST /api/v1/integrations/microsoft/disconnect/
+
+Description: Disconnect the user's Microsoft integration. Deletes stored Microsoft OAuth tokens and resets integration status.
+
+Auth: Required
+
+Headers:
+
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>`
+
+Success response (200):
+
+```json
+{ "message": "Microsoft integration disconnected successfully" }
+```
+
+Error responses:
+
+- 400: Missing agency header
+```json
+{ "error": "X-Agency-ID header is required" }
+```
+- 404: No Microsoft integration found
+```json
+{ "error": "Microsoft integration not found" }
+```
+
+---
+
+## Microsoft OAuth Flow Overview
+
+1. Frontend calls `GET /api/v1/integrations/microsoft/connect/` → receives `auth_url`
+2. Frontend redirects user to `auth_url` (Microsoft Entra consent screen)
+3. User authorizes → Microsoft redirects to `GET /api/v1/integrations/microsoft/callback/?code=XXX&state=user_id:agency_id`
+4. Backend exchanges authorization code for access and refresh tokens with Microsoft identity platform
+5. Backend fetches Microsoft Graph user profile (`/v1.0/me`), stores credentials in `MicrosoftToken` and profile details in `Integration.metadata`
+6. Backend redirects to `{FRONTEND_URL}/integrations?status=success&provider=microsoft`
+7. Frontend displays connected Microsoft account
+
+### Environment Variables
+
+| Variable | Description |
+|---|---|
+| `MICROSOFT_CLIENT_ID` | Microsoft Application (client) ID from Entra ID |
+| `MICROSOFT_CLIENT_SECRET` | Microsoft Application Client Secret |
+| `MICROSOFT_TENANT_ID` | Microsoft Tenant ID (`common`, `organizations`, or tenant UUID) |
+| `MICROSOFT_REDIRECT_URI` | Callback URL registered in Microsoft Entra ID |
+| `MICROSOFT_SCOPES` | Requested OAuth scopes (defaults to `offline_access User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite`) |
+| `FRONTEND_URL` | Frontend base URL for post-OAuth redirect |
+| `BACKEND_URL` | Backend base URL |
+

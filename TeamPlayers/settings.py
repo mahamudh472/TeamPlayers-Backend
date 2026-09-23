@@ -291,6 +291,20 @@ ZOOM_REDIRECT_URI = os.getenv(
     'ZOOM_REDIRECT_URI',
     'http://localhost:8000/api/v1/integrations/zoom/callback/'
 )
+
+# Microsoft OAuth settings
+MICROSOFT_CLIENT_ID = os.getenv('MICROSOFT_CLIENT_ID')
+MICROSOFT_CLIENT_SECRET = os.getenv('MICROSOFT_CLIENT_SECRET')
+MICROSOFT_TENANT_ID = os.getenv('MICROSOFT_TENANT_ID', 'common')
+MICROSOFT_REDIRECT_URI = os.getenv(
+    'MICROSOFT_REDIRECT_URI',
+    'http://localhost:8000/api/v1/integrations/microsoft/callback/'
+)
+MICROSOFT_SCOPES = os.getenv(
+    'MICROSOFT_SCOPES',
+    'offline_access User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite'
+)
+
 N8N_WEBHOOK_URL = os.getenv('N8N_WEBHOOK_URL')
 N8N_CANDIDATE_WEBHOOK_URL = os.getenv('N8N_CANDIDATE_WEBHOOK_URL', '')
 

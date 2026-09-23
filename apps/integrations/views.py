@@ -21,6 +21,10 @@ from .services import (
     store_zoom_tokens,
     create_zoom_meeting,
     disconnect_zoom,
+    get_microsoft_auth_url,
+    exchange_microsoft_code,
+    store_microsoft_tokens,
+    disconnect_microsoft,
     get_available_integrations,
 )
 
@@ -234,3 +238,106 @@ class ZoomCreateMeetingView(GenericAPIView):
                 {"error": "Failed to create meeting on Zoom. Please try again."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+
+
+class MicrosoftConnectView(GenericAPIView):
+    """Returns the Microsoft OAuth authorization URL with user/agency state."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        agency_id = request.agency_id
+        if not agency_id:
+            return Response(
+                {"error": "X-Agency-ID header is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        state = f"{request.user.id}:{agency_id}"
+        auth_url = get_microsoft_auth_url(state=state)
+        return Response({"auth_url": auth_url}, status=status.HTTP_200_OK)
+
+
+class MicrosoftCallbackView(GenericAPIView):
+    """
+    Microsoft OAuth callback endpoint.
+    Exchanges the authorization code for tokens, retrieves user profile, and redirects to the frontend.
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        code = request.query_params.get('code')
+        if not code:
+            return redirect(
+                f"{settings.FRONTEND_URL}/integrations?status=error&message=missing_code"
+            )
+
+        # Retrieve user and agency from session state passed via query params
+        user_id = request.query_params.get('state', '')
+        if not user_id:
+            return redirect(
+                f"{settings.FRONTEND_URL}/integrations?status=error&message=missing_state"
+            )
+
+        try:
+            parts = user_id.split(':')
+            if len(parts) != 2:
+                raise ValueError("Invalid state format")
+            user_id, agency_id = parts[0], parts[1]
+        except (ValueError, IndexError):
+            return redirect(
+                f"{settings.FRONTEND_URL}/integrations?status=error&message=invalid_state"
+            )
+
+        try:
+            from apps.accounts.models import User
+            user = User.objects.get(id=user_id)
+            agency = Agency.objects.get(id=agency_id)
+        except (User.DoesNotExist, Agency.DoesNotExist):
+            return redirect(
+                f"{settings.FRONTEND_URL}/integrations?status=error&message=invalid_user_or_agency"
+            )
+
+        try:
+            token_data = exchange_microsoft_code(code)
+            store_microsoft_tokens(user, agency, token_data)
+            return redirect(
+                f"{settings.FRONTEND_URL}/integrations?status=success&provider=microsoft"
+            )
+        except requests.RequestException as e:
+            logger.error("Microsoft OAuth token exchange failed: %s", str(e))
+            return redirect(
+                f"{settings.FRONTEND_URL}/integrations?status=error&message=token_exchange_failed"
+            )
+
+
+class MicrosoftDisconnectView(GenericAPIView):
+    """Disconnects the user's Microsoft integration."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        agency_id = request.agency_id
+        if not agency_id:
+            return Response(
+                {"error": "X-Agency-ID header is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            integration = Integration.objects.get(
+                user=request.user, agency_id=agency_id, provider='microsoft'
+            )
+        except Integration.DoesNotExist:
+            return Response(
+                {"error": "Microsoft integration not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        disconnect_microsoft(integration)
+        return Response(
+            {"message": "Microsoft integration disconnected successfully"},
+            status=status.HTTP_200_OK,
+        )
+

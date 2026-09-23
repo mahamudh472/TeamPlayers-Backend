@@ -9,7 +9,7 @@ class Integration(models.Model):
 
     PROVIDER_CHOICES = [
         ('zoom', 'Zoom'),
-        ('outlook', 'Outlook'),
+        ('microsoft', 'Microsoft'),
         ('google_calendar', 'Google Calendar'),
     ]
 
@@ -56,3 +56,27 @@ class ZoomToken(models.Model):
 
     def __str__(self):
         return f"ZoomToken for {self.integration}"
+
+
+class MicrosoftToken(models.Model):
+    """Stores Microsoft OAuth tokens linked to an Integration record."""
+
+    integration = models.OneToOneField(
+        Integration, on_delete=models.CASCADE, related_name='microsoft_token'
+    )
+    access_token = models.TextField()
+    refresh_token = models.TextField()
+    token_type = models.CharField(max_length=20, default='Bearer')
+    expires_at = models.DateTimeField()
+    scope = models.TextField(blank=True, default='')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'microsoft_tokens'
+        verbose_name = 'Microsoft Token'
+        verbose_name_plural = 'Microsoft Tokens'
+
+    def __str__(self):
+        return f"MicrosoftToken for {self.integration}"
