@@ -11,4 +11,6 @@ urlpatterns = [
     path('microsoft/connect/', views.MicrosoftConnectView.as_view(), name='microsoft_connect'),
     path('microsoft/callback/', views.MicrosoftCallbackView.as_view(), name='microsoft_callback'),
     path('microsoft/disconnect/', views.MicrosoftDisconnectView.as_view(), name='microsoft_disconnect'),
+    path('microsoft/mail/send/', views.MicrosoftSendMailView.as_view(), name='microsoft_send_mail'),
+    path('microsoft/calendar/events/create/', views.MicrosoftCreateEventView.as_view(), name='microsoft_create_event'),
 ]

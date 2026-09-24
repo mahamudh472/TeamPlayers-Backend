@@ -154,3 +154,105 @@ def disconnect_microsoft(integration: Integration) -> None:
     integration.connected_at = None
     integration.metadata = {}
     integration.save(update_fields=['is_connected', 'connected_at', 'metadata'])
+
+
+def send_microsoft_email(
+    microsoft_token: MicrosoftToken,
+    recipient_email: str,
+    subject: str,
+    body: str,
+    content_type: str = 'Text',
+) -> None:
+    """Send an email on behalf of the user via Microsoft Graph API."""
+    access_token = get_valid_microsoft_access_token(microsoft_token)
+
+    payload = {
+        'message': {
+            'subject': subject,
+            'body': {
+                'contentType': content_type,
+                'content': body,
+            },
+            'toRecipients': [
+                {
+                    'emailAddress': {
+                        'address': recipient_email,
+                    }
+                }
+            ],
+        },
+        'saveToSentItems': True,
+    }
+
+    response = requests.post(
+        f"{GRAPH_API_BASE}/me/sendMail",
+        headers={
+            'Authorization': f"Bearer {access_token}",
+            'Content-Type': 'application/json',
+        },
+        json=payload,
+        timeout=15,
+    )
+    response.raise_for_status()
+
+
+def create_microsoft_event(
+    microsoft_token: MicrosoftToken,
+    subject: str,
+    start_time,
+    end_time=None,
+    duration: int = 60,
+    body: str = '',
+    location: str = '',
+) -> dict:
+    """Create a calendar event via Microsoft Graph API."""
+    access_token = get_valid_microsoft_access_token(microsoft_token)
+
+    if end_time is None:
+        if isinstance(start_time, str):
+            from dateutil.parser import parse
+            start_dt = parse(start_time)
+            end_dt = start_dt + timedelta(minutes=duration)
+            end_time = end_dt.isoformat()
+        else:
+            end_time = start_time + timedelta(minutes=duration)
+
+    start_str = start_time.isoformat() if hasattr(start_time, 'isoformat') else str(start_time)
+    end_str = end_time.isoformat() if hasattr(end_time, 'isoformat') else str(end_time)
+
+    payload = {
+        'subject': subject,
+        'start': {
+            'dateTime': start_str,
+            'timeZone': 'UTC',
+        },
+        'end': {
+            'dateTime': end_str,
+            'timeZone': 'UTC',
+        },
+    }
+
+    if body:
+        content_type = 'HTML' if ('<' in body and '>' in body) else 'Text'
+        payload['body'] = {
+            'contentType': content_type,
+            'content': body,
+        }
+
+    if location:
+        payload['location'] = {
+            'displayName': location,
+        }
+
+    response = requests.post(
+        f"{GRAPH_API_BASE}/me/events",
+        headers={
+            'Authorization': f"Bearer {access_token}",
+            'Content-Type': 'application/json',
+        },
+        json=payload,
+        timeout=15,
+    )
+    response.raise_for_status()
+    return response.json()
+

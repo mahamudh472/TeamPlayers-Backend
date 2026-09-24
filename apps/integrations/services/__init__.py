@@ -12,6 +12,8 @@ from .microsoft import (
     store_microsoft_tokens,
     get_valid_microsoft_access_token,
     disconnect_microsoft,
+    send_microsoft_email,
+    create_microsoft_event,
 )
 from .available import get_available_integrations
 

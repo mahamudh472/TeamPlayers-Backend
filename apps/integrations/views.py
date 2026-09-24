@@ -14,6 +14,8 @@ from .serializers import (
     IntegrationSerializer,
     ZoomMeetingCreateSerializer,
     AvailableIntegrationSerializer,
+    MicrosoftSendMailSerializer,
+    MicrosoftCreateEventSerializer,
 )
 from .services import (
     get_zoom_auth_url,
@@ -25,6 +27,8 @@ from .services import (
     exchange_microsoft_code,
     store_microsoft_tokens,
     disconnect_microsoft,
+    send_microsoft_email,
+    create_microsoft_event,
     get_available_integrations,
 )
 
@@ -340,4 +344,139 @@ class MicrosoftDisconnectView(GenericAPIView):
             {"message": "Microsoft integration disconnected successfully"},
             status=status.HTTP_200_OK,
         )
+
+
+class MicrosoftSendMailView(GenericAPIView):
+    """Sends an email using the connected Microsoft account."""
+
+    serializer_class = MicrosoftSendMailSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        agency_id = request.agency_id
+        if not agency_id:
+            return Response(
+                {"error": "X-Agency-ID header is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            integration = Integration.objects.select_related('microsoft_token').get(
+                user=request.user, agency_id=agency_id, provider='microsoft', is_connected=True
+            )
+        except Integration.DoesNotExist:
+            return Response(
+                {"error": "Microsoft is not connected. Please connect your Microsoft account first."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        microsoft_token = getattr(integration, 'microsoft_token', None)
+        if not microsoft_token:
+            return Response(
+                {"error": "Microsoft tokens not found. Please reconnect your Microsoft account."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            send_microsoft_email(
+                microsoft_token=microsoft_token,
+                recipient_email=serializer.validated_data['recipient_email'],
+                subject=serializer.validated_data['subject'],
+                body=serializer.validated_data['body'],
+                content_type=serializer.validated_data.get('content_type', 'Text'),
+            )
+            return Response(
+                {"message": "Email sent successfully"},
+                status=status.HTTP_200_OK,
+            )
+        except requests.HTTPError as e:
+            logger.error("Failed to send Microsoft email: %s, response: %s", str(e), getattr(e.response, 'text', ''))
+            return Response(
+                {"error": "Failed to send email via Microsoft Graph API. Please try again."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except requests.RequestException as e:
+            logger.error("Failed to send Microsoft email: %s", str(e))
+            return Response(
+                {"error": "Failed to communicate with Microsoft Graph API."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+
+class MicrosoftCreateEventView(GenericAPIView):
+    """Creates a calendar event using the connected Microsoft account."""
+
+    serializer_class = MicrosoftCreateEventSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        agency_id = request.agency_id
+        if not agency_id:
+            return Response(
+                {"error": "X-Agency-ID header is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            integration = Integration.objects.select_related('microsoft_token').get(
+                user=request.user, agency_id=agency_id, provider='microsoft', is_connected=True
+            )
+        except Integration.DoesNotExist:
+            return Response(
+                {"error": "Microsoft is not connected. Please connect your Microsoft account first."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        microsoft_token = getattr(integration, 'microsoft_token', None)
+        if not microsoft_token:
+            return Response(
+                {"error": "Microsoft tokens not found. Please reconnect your Microsoft account."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            event_data = create_microsoft_event(
+                microsoft_token=microsoft_token,
+                subject=serializer.validated_data['subject'],
+                start_time=serializer.validated_data['start_time'],
+                end_time=serializer.validated_data.get('end_time'),
+                duration=serializer.validated_data.get('duration', 60),
+                body=serializer.validated_data.get('body', ''),
+                location=serializer.validated_data.get('location', ''),
+            )
+            return Response(
+                {
+                    "message": "Calendar event created successfully",
+                    "event": {
+                        "id": event_data.get('id'),
+                        "subject": event_data.get('subject'),
+                        "start": event_data.get('start'),
+                        "end": event_data.get('end'),
+                        "web_link": event_data.get('webLink'),
+                        "location": event_data.get('location', {}).get('displayName', ''),
+                    },
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        except requests.HTTPError as e:
+            logger.error("Failed to create Microsoft event: %s, response: %s", str(e), getattr(e.response, 'text', ''))
+            return Response(
+                {"error": "Failed to create calendar event via Microsoft Graph API. Please try again."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except requests.RequestException as e:
+            logger.error("Failed to create Microsoft event: %s", str(e))
+            return Response(
+                {"error": "Failed to communicate with Microsoft Graph API."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
 

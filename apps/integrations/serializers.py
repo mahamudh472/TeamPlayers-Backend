@@ -39,3 +39,38 @@ class AvailableIntegrationSerializer(serializers.Serializer):
     created_at = serializers.DateTimeField(allow_null=True)
     updated_at = serializers.DateTimeField(allow_null=True)
 
+
+class MicrosoftSendMailSerializer(serializers.Serializer):
+    """Validates input for sending an email via Microsoft Graph API."""
+
+    recipient_email = serializers.EmailField()
+    subject = serializers.CharField(max_length=255)
+    body = serializers.CharField()
+    content_type = serializers.ChoiceField(
+        choices=['Text', 'HTML'], default='Text', required=False
+    )
+
+
+class MicrosoftCreateEventSerializer(serializers.Serializer):
+    """Validates input for creating a calendar event via Microsoft Graph API."""
+
+    subject = serializers.CharField(max_length=255)
+    start_time = serializers.DateTimeField(
+        help_text="Event start time in ISO 8601 format (e.g. 2026-09-25T10:00:00Z)"
+    )
+    end_time = serializers.DateTimeField(
+        required=False, allow_null=True,
+        help_text="Event end time in ISO 8601 format. If omitted, duration is used."
+    )
+    duration = serializers.IntegerField(
+        min_value=1, max_value=1440, required=False, default=60,
+        help_text="Event duration in minutes (used if end_time is omitted)"
+    )
+    body = serializers.CharField(
+        max_length=2000, required=False, allow_blank=True, default=''
+    )
+    location = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, default=''
+    )
+
+

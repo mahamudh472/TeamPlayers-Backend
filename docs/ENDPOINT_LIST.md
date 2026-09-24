@@ -84,6 +84,8 @@ This index lists available API endpoints and links to the per-app reference page
 - [GET  /api/v1/integrations/microsoft/connect/](endpoints/integrations.md) — Generate the Microsoft OAuth authorization URL (authenticated)
 - [GET  /api/v1/integrations/microsoft/callback/](endpoints/integrations.md) — OAuth callback endpoint that Microsoft redirects to after user authorization
 - [POST /api/v1/integrations/microsoft/disconnect/](endpoints/integrations.md) — Disconnect the user's Microsoft integration (authenticated)
+- [POST /api/v1/integrations/microsoft/mail/send/](endpoints/integrations.md) — Send an email via Microsoft Graph API (authenticated)
+- [POST /api/v1/integrations/microsoft/calendar/events/create/](endpoints/integrations.md) — Create a calendar event via Microsoft Graph API (authenticated)
 
 ---
 

@@ -13,6 +13,8 @@ Back to index: [ENDPOINT_LIST.md](../ENDPOINT_LIST.md)
 - GET  `/api/v1/integrations/microsoft/connect/`
 - GET  `/api/v1/integrations/microsoft/callback/`
 - POST `/api/v1/integrations/microsoft/disconnect/`
+- POST `/api/v1/integrations/microsoft/mail/send/`
+- POST `/api/v1/integrations/microsoft/calendar/events/create/`
 
 ---
 
@@ -401,6 +403,182 @@ Error responses:
 - 404: No Microsoft integration found
 ```json
 { "error": "Microsoft integration not found" }
+```
+
+---
+
+## POST /api/v1/integrations/microsoft/mail/send/
+
+Description: Send an email on behalf of the user using their connected Microsoft (Outlook) account.
+
+Auth: Required
+
+Headers:
+
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>`
+
+Request JSON:
+
+```json
+{
+  "recipient_email": "candidate@example.com",
+  "subject": "Interview Invitation",
+  "body": "Hello,\n\nWe would like to invite you for an interview.\n\nBest regards,\nTeam",
+  "content_type": "Text"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `recipient_email` | email | Yes | Recipient email address |
+| `subject` | string | Yes | Email subject line (max 255 chars) |
+| `body` | string | Yes | Email body content |
+| `content_type` | string | No | Content type: `"Text"` or `"HTML"` (default: `"Text"`) |
+
+Success response (200):
+
+```json
+{
+  "message": "Email sent successfully"
+}
+```
+
+Error responses:
+
+- 400: Missing agency header
+```json
+{ "error": "X-Agency-ID header is required" }
+```
+- 400: Microsoft not connected
+```json
+{ "error": "Microsoft is not connected. Please connect your Microsoft account first." }
+```
+- 400: Tokens missing
+```json
+{ "error": "Microsoft tokens not found. Please reconnect your Microsoft account." }
+```
+- 400: Validation error
+```json
+{
+  "recipient_email": ["Enter a valid email address."]
+}
+```
+- 502: Microsoft Graph API failure
+```json
+{ "error": "Failed to send email via Microsoft Graph API. Please try again." }
+```
+
+Curl example:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/integrations/microsoft/mail/send/ \
+  -H "Authorization: Bearer <access_token>" \
+  -H "X-Agency-ID: 1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "recipient_email": "candidate@example.com",
+    "subject": "Test Outlook Email",
+    "body": "This is a test email sent from TeamPlayers via Microsoft Graph."
+  }'
+```
+
+---
+
+## POST /api/v1/integrations/microsoft/calendar/events/create/
+
+Description: Create a calendar event in the user's connected Microsoft (Outlook) Calendar.
+
+Auth: Required
+
+Headers:
+
+- `Authorization: Bearer <access_token>`
+- `X-Agency-ID: <agency_id>`
+
+Request JSON:
+
+```json
+{
+  "subject": "Candidate Technical Interview",
+  "start_time": "2026-09-25T14:00:00Z",
+  "end_time": "2026-09-25T15:00:00Z",
+  "duration": 60,
+  "body": "Discussion on technical architecture and past experiences.",
+  "location": "Online (Teams / Zoom)"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `subject` | string | Yes | Event title / subject (max 255 chars) |
+| `start_time` | datetime | Yes | Start time in ISO 8601 format |
+| `end_time` | datetime | No | End time in ISO 8601 format (if omitted, `duration` is added to `start_time`) |
+| `duration` | integer | No | Duration in minutes (1–1440, default: `60`) |
+| `body` | string | No | Event description / agenda (max 2000 chars) |
+| `location` | string | No | Event location name (max 255 chars) |
+
+Success response (201):
+
+```json
+{
+  "message": "Calendar event created successfully",
+  "event": {
+    "id": "AAMkAD...",
+    "subject": "Candidate Technical Interview",
+    "start": {
+      "dateTime": "2026-09-25T14:00:00.0000000",
+      "timeZone": "UTC"
+    },
+    "end": {
+      "dateTime": "2026-09-25T15:00:00.0000000",
+      "timeZone": "UTC"
+    },
+    "web_link": "https://outlook.live.com/owa/?itemid=AAMkAD...&exsvurl=1&path=/calendar/item",
+    "location": "Online (Teams / Zoom)"
+  }
+}
+```
+
+Error responses:
+
+- 400: Missing agency header
+```json
+{ "error": "X-Agency-ID header is required" }
+```
+- 400: Microsoft not connected
+```json
+{ "error": "Microsoft is not connected. Please connect your Microsoft account first." }
+```
+- 400: Tokens missing
+```json
+{ "error": "Microsoft tokens not found. Please reconnect your Microsoft account." }
+```
+- 400: Validation error
+```json
+{
+  "subject": ["This field is required."]
+}
+```
+- 502: Microsoft Graph API failure
+```json
+{ "error": "Failed to create calendar event via Microsoft Graph API. Please try again." }
+```
+
+Curl example:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/integrations/microsoft/calendar/events/create/ \
+  -H "Authorization: Bearer <access_token>" \
+  -H "X-Agency-ID: 1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subject": "Candidate Technical Interview",
+    "start_time": "2026-09-25T14:00:00Z",
+    "duration": 60,
+    "body": "Initial screening interview",
+    "location": "Microsoft Teams"
+  }'
 ```
 
 ---
