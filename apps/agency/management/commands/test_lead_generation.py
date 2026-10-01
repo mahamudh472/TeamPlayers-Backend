@@ -17,6 +17,7 @@ class Command(BaseCommand):
         parser.add_argument("--provider", type=str, choices=["apify", "n8n"], default=None, help="Provider to use (apify or n8n)")
         parser.add_argument("--country", type=str, default="Germany", help="Target country")
         parser.add_argument("--industry", type=str, default="Automotive", help="Target industry")
+        parser.add_argument("--job-title", type=str, default=None, help="Target job title to find companies hiring for")
         parser.add_argument("--company-size", type=str, default="50-200", help="Target company size")
         parser.add_argument("--hiring-activity", type=str, default="active", help="Target hiring activity")
 
@@ -24,11 +25,12 @@ class Command(BaseCommand):
         provider = (options.get("provider") or getattr(settings, "LEAD_GENERATION_PROVIDER", "n8n")).lower()
         country = options.get("country")
         industry = options.get("industry")
+        job_title = options.get("job_title")
         company_size = options.get("company_size")
         hiring_activity = options.get("hiring_activity")
 
         self.stdout.write(self.style.NOTICE(f"=== Testing Lead Generation (Provider: {provider}) ==="))
-        self.stdout.write(f"Parameters: Country='{country}', Industry='{industry}', Size='{company_size}', Activity='{hiring_activity}'")
+        self.stdout.write(f"Parameters: Country='{country}', Industry='{industry}', Job Title='{job_title}', Size='{company_size}', Activity='{hiring_activity}'")
 
         # Resolve or create test User and Agency
         user = User.objects.first()
@@ -45,6 +47,7 @@ class Command(BaseCommand):
             user=user,
             country=country,
             industry=industry,
+            job_title=job_title,
             company_size=company_size,
             hiring_activity=hiring_activity
         )

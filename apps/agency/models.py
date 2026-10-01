@@ -415,6 +415,7 @@ class LeadGenerationSession(models.Model):
 
     country = models.CharField(max_length=100, blank=True, null=True)
     industry = models.CharField(max_length=100, blank=True, null=True)
+    job_title = models.CharField(max_length=255, blank=True, null=True)
     company_size = models.CharField(max_length=100, blank=True, null=True)
     hiring_activity = models.CharField(max_length=100, blank=True, null=True)
 

@@ -407,14 +407,25 @@ Headers:
 
 Request JSON:
 
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `country` | string | Yes | Target country (max 100 chars) |
+| `industry` | string | Yes | Target industry (max 100 chars) |
+| `job_title` | string | No | Role to target. When set, generation also searches for companies actively hiring for this role (max 255 chars) |
+| `company_size` | string | Yes | Target company size (max 100 chars) |
+| `hiring_activity` | string | Yes | Target hiring activity (max 100 chars) |
+
 ```json
 {
   "country": "Germany",
   "industry": "Automotive",
+  "job_title": "Backend Engineer",
   "company_size": "50-200",
   "hiring_activity": "active"
 }
 ```
+
+Omitting `job_title` is valid and restricts generation to companies in the target industry.
 
 Success response (201):
 
@@ -425,6 +436,7 @@ Success response (201):
   "user": "5313d494-b152-4752-95b6-6d2745cf0249",
   "country": "Germany",
   "industry": "Automotive",
+  "job_title": "Backend Engineer",
   "company_size": "50-200",
   "hiring_activity": "active",
   "status": "processing",

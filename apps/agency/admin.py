@@ -78,8 +78,8 @@ class CandidateAIAnalysisAdmin(ModelAdmin):
 
 @admin.register(LeadGenerationSession)
 class LeadGenerationSessionAdmin(ModelAdmin):
-    list_display = ('id', 'agency', 'user', 'country', 'industry', 'company_size', 'hiring_activity', 'status', 'created_at')
-    search_fields = ('agency__name', 'user__email', 'country', 'industry', 'company_size', 'hiring_activity', 'status')
+    list_display = ('id', 'agency', 'user', 'country', 'industry', 'job_title', 'company_size', 'hiring_activity', 'status', 'created_at')
+    search_fields = ('agency__name', 'user__email', 'country', 'industry', 'job_title', 'company_size', 'hiring_activity', 'status')
     ordering = ('-created_at',)
 
 
