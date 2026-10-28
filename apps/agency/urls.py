@@ -40,7 +40,9 @@ from .views import (
     AcceptInvitationView,
     GenerateJobDescriptionView,
     CandidateGatheringView,
-    CandidateWebhookIngestView
+    CandidateWebhookIngestView,
+    LeadGenerateEmailView,
+    LeadSendEmailView
 )
 
 urlpatterns = [
@@ -53,6 +55,8 @@ urlpatterns = [
     path('leads/<int:pk>/', LeadDetailView.as_view(), name='lead_detail'),
     path('leads/<int:pk>/notes/', LeadAddNoteView.as_view(), name='lead_add_note'),
     path('leads/<int:pk>/status/', LeadChangeStatusView.as_view(), name='lead_change_status'),
+    path('leads/<int:pk>/generate-email/', LeadGenerateEmailView.as_view(), name='lead_generate_email'),
+    path('leads/<int:pk>/send-email/', LeadSendEmailView.as_view(), name='lead_send_email'),
     path('leads/generate/', LeadGenerationView.as_view(), name='lead_generation'),
     path('webhooks/leads/', LeadWebhookIngestView.as_view(), name='lead_webhook_ingest'),
     path('webhooks/candidates/', CandidateWebhookIngestView.as_view(), name='candidate_webhook_ingest'),

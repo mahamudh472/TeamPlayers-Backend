@@ -807,3 +807,9 @@ class MultipleCandidatesTextUploadSerializer(serializers.Serializer):
     text = serializers.CharField(required=True)
     job = serializers.IntegerField(required=True)
 
+
+
+class LeadSendEmailSerializer(serializers.Serializer):
+    subject = serializers.CharField(required=True, max_length=300)
+    body = serializers.CharField(required=True)
+    recipient_email = serializers.EmailField(required=False, allow_blank=True)

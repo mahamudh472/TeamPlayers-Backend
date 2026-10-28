@@ -1545,3 +1545,145 @@ class AgencyRecommendationsView(APIView):
 
 
 
+
+
+from apps.agency.models import Note, Activity
+from apps.agency.serializers import LeadSendEmailSerializer
+from apps.ai.lead_email_generator import LeadEmailGenerator
+
+
+class LeadGenerateEmailView(APIView):
+    """
+    API endpoint to generate personalized outreach email (subject & body)
+    for a lead using AI.
+    Requires header: X-Agency-ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        lead = get_agency_lead_by_id(agency, pk)
+
+        lead_data = {
+            "company": lead.company,
+            "contact_person": lead.contact_person,
+            "contact_email": lead.contact_email,
+            "industry": lead.industry,
+            "location": lead.location,
+            "company_size": lead.company_size,
+            "hiring_activity": lead.hiring_activity,
+            "job_title": lead.job_title,
+            "description": lead.description,
+            "website": lead.website,
+        }
+
+        sender_name = request.user.get_full_name() or request.user.username
+        agency_name = agency.name
+
+        generator = LeadEmailGenerator()
+        generated = generator.generate(lead_data, sender_name=sender_name, agency_name=agency_name)
+
+        return Response({
+            "lead_id": lead.id,
+            "company": lead.company,
+            "contact_person": lead.contact_person or "",
+            "recipient_email": lead.contact_email or "",
+            "subject": generated.subject,
+            "body": generated.body,
+        }, status=status.HTTP_200_OK)
+
+
+class LeadSendEmailView(APIView):
+    """
+    API endpoint to send an outreach email to a lead using the user's connected email account (Microsoft Outlook).
+    If no email integration is connected, returns an error prompting the user to connect their account.
+    Requires header: X-Agency-ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        agency_id = request.agency_id
+        agency = get_verified_agency(request.user, agency_id)
+        lead = get_agency_lead_by_id(agency, pk)
+
+        serializer = LeadSendEmailSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        subject = serializer.validated_data['subject']
+        body = serializer.validated_data['body']
+        recipient_email = (
+            serializer.validated_data.get('recipient_email')
+            or lead.contact_email
+            or ''
+        ).strip()
+
+        if not recipient_email:
+            return Response(
+                {"error": "Recipient email address is required. Please specify a valid email address for this lead."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check for user's connected email integration
+        from apps.integrations.models import Integration
+        from apps.integrations.services.microsoft import send_microsoft_email
+
+        integration = Integration.objects.select_related('microsoft_token').filter(
+            user=request.user,
+            agency=agency,
+            provider='microsoft',
+            is_connected=True,
+        ).first()
+
+        if not integration or not getattr(integration, 'microsoft_token', None):
+            return Response(
+                {
+                    "error": "No connected email account found. Please connect your email account in Settings > Integrations first.",
+                    "code": "EMAIL_NOT_CONNECTED"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            send_microsoft_email(
+                microsoft_token=integration.microsoft_token,
+                recipient_email=recipient_email,
+                subject=subject,
+                body=body,
+                content_type='Text'
+            )
+        except Exception as e:
+            logger.error("Failed to send email to lead %s: %s", lead.id, str(e))
+            return Response(
+                {"error": f"Failed to send email via connected account: {str(e)}"},
+                status=status.HTTP_502_BAD_GATEWAY
+            )
+
+        # Update lead status to contacted if new
+        if lead.status == 'new':
+            lead.status = 'contacted'
+            lead.save()
+
+        # Log note and activity
+        Note.objects.create(
+            content=f"Sent outreach email to {recipient_email}\nSubject: {subject}",
+            model='lead',
+            model_id=lead.id,
+            user=request.user,
+            agency=agency
+        )
+
+        Activity.objects.create(
+            model='lead',
+            model_id=lead.id,
+            agency=agency,
+            user=request.user,
+            summary=f"Sent outreach email to {lead.company} ({recipient_email})"
+        )
+
+        return Response({
+            "message": f"Email sent successfully to {recipient_email}",
+            "lead_id": lead.id,
+            "status": lead.status
+        }, status=status.HTTP_200_OK)
