@@ -32,26 +32,36 @@ class LeadEmailGenerator:
         company = lead_data.get("company") or "your team"
         contact_person = lead_data.get("contact_person")
         greeting = f"Hi {contact_person.split()[0]}," if contact_person else f"Hi {company} Hiring Team,"
-        industry = lead_data.get("industry") or "your industry"
+        industry = lead_data.get("industry") or "your sector"
         job_title = lead_data.get("job_title")
 
-        subject = (
-            f"Talent pipeline for {company}'s {job_title} role"
-            if job_title
-            else f"Supporting {company}'s hiring & talent growth"
-        )
+        if job_title:
+            subject = f"Relevant {job_title} profiles for {company}"
+            opening_sentence = (
+                f"I noticed you were recruiting for a {job_title} at {company}. "
+                f"As specialist recruiters for the {industry} sector, we currently have a number of "
+                f"relevant, pre-vetted profiles for your {job_title} role from many of your competitors in the market."
+            )
+        else:
+            subject = f"Specialist {industry} talent pipeline for {company}"
+            opening_sentence = (
+                f"I noticed {company}'s ongoing talent recruitment in the {industry} space. "
+                f"As specialist recruiters in {industry}, we currently have a number of relevant, pre-vetted profiles "
+                f"from key competitors in the market."
+            )
 
         body_lines = [
             greeting,
             "",
-            f"I hope you're having a great week. I've been following {company}'s work in the {industry} space"
-            + (f" and noticed your active search for a {job_title}." if job_title else " and wanted to reach out regarding your upcoming talent expansion."),
+            opening_sentence,
             "",
-            f"At {agency_name or 'TeamPlayers'}, we specialize in connecting high-growth organizations with pre-vetted, high-impact candidates. Our focus is on significantly cutting down time-to-hire while ensuring strong technical and cultural alignment.",
+            "I thought I would reach out to see if it makes sense to send some matching profiles through to you and start a discussion about how we can support you to fill this role.",
             "",
-            "Would you be open to a brief 10-minute introductory chat later this week to see how we could support your hiring pipeline?",
+            "Our services are free of charge until the start date of an actual placement, so this is a risk-free opportunity for you to review the best talent in the market for your vacancy.",
             "",
-            f"Best regards,\n{sender_name or 'The Team'}\n{agency_name or 'TeamPlayers'}"
+            "Would you be open to reviewing a couple of matching candidate profiles or having a brief 10-minute introductory call later this week?",
+            "",
+            f"Best regards,\n{sender_name or 'Recruitment Team'}\n{agency_name or 'TeamPlayers'}"
         ]
 
         return GeneratedLeadEmail(
@@ -70,14 +80,14 @@ class LeadEmailGenerator:
         """
         prompt_input = (
             f"Agency Name: {agency_name or 'TeamPlayers'}\n"
-            f"Sender Name: {sender_name or 'Recruitment Partner'}\n"
+            f"Sender Name: {sender_name or 'Recruiter'}\n"
             f"Target Company: {lead_data.get('company', 'Unknown')}\n"
             f"Contact Person: {lead_data.get('contact_person', 'Hiring Manager')}\n"
             f"Industry: {lead_data.get('industry', 'N/A')}\n"
             f"Location: {lead_data.get('location', 'N/A')}\n"
             f"Company Size: {lead_data.get('company_size', 'N/A')}\n"
             f"Hiring Activity: {lead_data.get('hiring_activity', 'N/A')}\n"
-            f"Target Job Opening: {lead_data.get('job_title', 'N/A')}\n"
+            f"Target Job Opening (X): {lead_data.get('job_title', 'N/A')}\n"
             f"Job Description / Details: {lead_data.get('description', 'N/A')}\n"
             f"Website: {lead_data.get('website', 'N/A')}\n"
         )
