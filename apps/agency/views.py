@@ -1578,7 +1578,7 @@ class LeadGenerateEmailView(APIView):
             "website": lead.website,
         }
 
-        sender_name = request.user.get_full_name() or request.user.username
+        sender_name = getattr(request.user, 'full_name', None) or getattr(request.user, 'username', None) or getattr(request.user, 'email', '')
         agency_name = agency.name
 
         generator = LeadEmailGenerator()
