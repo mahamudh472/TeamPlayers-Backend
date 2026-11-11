@@ -1,8 +1,5 @@
-import re
-import json
 import logging
 import threading
-from urllib.parse import urlparse
 from django.conf import settings
 from django.db import close_old_connections
 from django.utils import timezone
@@ -10,39 +7,9 @@ from rest_framework.exceptions import ValidationError
 from apps.agency.models import Agency, LeadGenerationSession, Activity
 from apps.accounts.models import User
 from apps.agency.services.leads import ingest_bulk_leads
-from apps.agency.utils.apify_client import ApifyClient, ApifyError
-from apps.ai.company_parser import CompanyParser
+from apps.agency.services.lead_pipeline import build_leads, existing_company_keys
 
 logger = logging.getLogger(__name__)
-
-JOB_BOARD_URL_PATTERNS = [
-    'indeed.com', 'glassdoor.com', 'monster.com', 'ziprecruiter.com',
-    'jooble.org', 'reliefweb.int', 'salary.com', 'upwork.com',
-    'fiverr.com', 'jobs.af', 'bayt.com', 'naukri.com', 'simplyhired.com'
-]
-
-CAREERS_URL_PATTERNS = [
-    '/jobs/', '/job/', '/careers/', '/vacancies/', '/openings/'
-]
-
-JOB_URL_MARKERS = ['/jobs/', '/job/']
-
-# Job-posting results legitimately match phrases like "jobs in" or "open roles",
-# so they use a narrower blacklist than company-page results.
-JUNK_JOB_TITLE_PATTERNS = [
-    'job board', 'find a job', 'apply now', '10 best', 'salary for',
-    'top 10', 'how to', 'guide to', 'directory of', 'list of companies'
-]
-
-JUNK_TITLE_PATTERNS = [
-    'vacancies in', 'vacancies', 'jobs in', 'open roles', 'job openings', 'open positions',
-    'positions in', 'hiring now', 'careers in', 'careers at', 'top 10', 'how to',
-    'guide to', 'guide for', 'directory of', 'list of companies', 'salary for',
-    'salaries in', 'employment in', 'work in', 'all jobs', 'latest jobs',
-    'job board', 'find a job', 'apply now', '10 best', 'recruitment in',
-    'job opportunities', 'hiring jobs', 'open jobs', 'open role'
-]
-
 
 def create_lead_generation_session(
     agency: Agency,
@@ -145,319 +112,35 @@ def trigger_apify_lead_generation(session: LeadGenerationSession) -> None:
     thread.start()
 
 
-def _clean_company_name_heuristic(title: str, raw_url: str = '') -> str:
-    """
-    Extracts a clean, human-readable company name from search result title and URL.
-    """
-    slug_name = ''
-    if raw_url and 'linkedin.com/company/' in raw_url:
-        match = re.search(r'linkedin\.com/company/([^/?#]+)', raw_url)
-        if match:
-            slug = match.group(1).replace('-', ' ').replace('_', ' ')
-            slug_name = ' '.join([w.capitalize() for w in slug.split()])
-
-    cleaned = re.sub(r'(?i)\s*[-|:|–|—|•|\|]\s*(LinkedIn|Overview|About Us|About|Home|Careers|Official Site|Official Website|Company Page).*$', '', title)
-    cleaned = re.sub(r'(?i)^(Welcome to|Home of)\s+', '', cleaned)
-    cleaned = re.sub(r'\.\.\.$', '', cleaned).strip()
-
-    # If title was truncated or left with trailing preposition, prefer clean slug name
-    if (cleaned.endswith((' for', ' in', ' and', ' of', ' the', ' with', ' at')) or len(cleaned) < 3) and slug_name:
-        return slug_name
-
-    return cleaned or slug_name
-
-
-def _resolve_source_kind(item: dict) -> str:
-    """
-    Classifies a scraped search result as a company page or a job posting, based on its URL.
-    """
-    raw_url = item.get('url') or item.get('link') or item.get('website') or ''
-    raw_url_lower = raw_url.lower()
-    if any(marker in raw_url_lower for marker in JOB_URL_MARKERS):
-        return 'job_posting'
-    return 'company_page'
-
-
-def _clean_job_posting_company_name_heuristic(title: str, raw_url: str = '') -> str:
-    """
-    Extracts the hiring company name from a job posting title and URL.
-    LinkedIn job URLs carry the employer in the slug as "<role>-at-<company>-<id>".
-    """
-    if raw_url and 'linkedin.com/jobs/view/' in raw_url.lower():
-        match = re.search(r'-at-([^/?#]+?)(?:-\d+)?(?:/|$)', raw_url.lower())
-        if match:
-            slug = match.group(1).replace('-', ' ').replace('_', ' ')
-            return ' '.join([w.capitalize() for w in slug.split()])
-
-    # Fall back to the trailing segment of a "<Role> at <Company>" style title
-    cleaned = re.sub(r'(?i)\s*[-|:|–|—|•|]\s*(LinkedIn|Jobs|Job|Overview|Apply Now).*$', '', title)
-    at_match = re.search(r'(?i)\bat\s+(.+)$', cleaned)
-    if at_match:
-        return at_match.group(1).strip()
-    return cleaned.strip()
-
-
-def _normalize_lead_from_item(
-    item: dict,
-    default_country: str,
-    default_industry: str,
-    default_size: str,
-    default_job_title: str = '',
-    default_hiring_activity: str = '',
-    source_kind: str = 'company_page',
-    company_parser: CompanyParser = None
-) -> dict:
-    """
-    Normalizes a scraped dataset item into a standard genuine company lead dictionary.
-    Strictly filters out non-company posts, job boards, aggregators, and generic articles.
-    For job postings the lead is the hiring employer, not the posting page itself.
-    """
-    raw_url = item.get('url') or item.get('link') or item.get('website') or ''
-    title = item.get('title') or item.get('job_title') or item.get('jobTitle') or ''
-    snippet = item.get('description') or item.get('snippet') or item.get('text') or ''
-    is_job_posting = source_kind == 'job_posting'
-
-    # 1. URL Blacklist Filter
-    if raw_url:
-        raw_url_lower = raw_url.lower()
-        blocked_patterns = JOB_BOARD_URL_PATTERNS + ([] if is_job_posting else CAREERS_URL_PATTERNS)
-        if any(bad_pattern in raw_url_lower for bad_pattern in blocked_patterns):
-            logger.debug(f"[LeadGeneration] Skipping junk URL: {raw_url}")
-            return None
-
-    # 2. Title Blacklist Filter
-    title_patterns = JUNK_JOB_TITLE_PATTERNS if is_job_posting else JUNK_TITLE_PATTERNS
-    title_lower = title.lower()
-    if any(junk_title in title_lower for junk_title in title_patterns):
-        logger.debug(f"[LeadGeneration] Skipping junk title: {title}")
-        return None
-
-    # 3. Use AI Company Parser to extract & verify genuine company entity
-    parsed_profile = None
-    if company_parser:
-        prompt_context = (
-            f"Title: {title}\n"
-            f"URL: {raw_url}\n"
-            f"Snippet: {snippet}\n"
-            f"Result Type: {source_kind}\n"
-            f"Default Industry: {default_industry}\n"
-            f"Default Country: {default_country}\n"
-            f"Target Job Title: {default_job_title}\n"
-        )
-        parsed_profile = company_parser.parse_company(prompt_context)
-
-    if parsed_profile:
-        if not parsed_profile.is_company:
-            logger.info(f"[LeadGeneration] AI determined entity is not a company: '{title}' (URL: {raw_url}), skipping.")
-            return None
-
-        company_name = parsed_profile.company_name
-        if is_job_posting:
-            # Never let a posting URL masquerade as the company website.
-            website = parsed_profile.website
-            linkedin_url = parsed_profile.linkedin_url or raw_url
-        else:
-            website = parsed_profile.website or raw_url
-            linkedin_url = parsed_profile.linkedin_url or (raw_url if 'linkedin.com/company/' in raw_url else '')
-        industry = parsed_profile.industry or default_industry
-        location = parsed_profile.location or default_country
-        description = parsed_profile.description or snippet
-        company_size = parsed_profile.company_size or default_size
-        employee_count = parsed_profile.employee_count
-        company_domain = parsed_profile.company_domain
-    else:
-        # Heuristic fallback if AI parser is unavailable
-        company_name = (
-            _clean_job_posting_company_name_heuristic(title, raw_url)
-            if is_job_posting
-            else _clean_company_name_heuristic(title, raw_url)
-        )
-        website = None if is_job_posting else raw_url
-        linkedin_url = raw_url if (is_job_posting or 'linkedin.com/company/' in raw_url) else ''
-        industry = default_industry
-        location = default_country
-        description = re.sub(r'\s*\.\.\.Read more$', '', snippet).strip()
-        company_size = default_size
-        employee_count = item.get('employee_count') or item.get('employeeCount')
-        company_domain = ''
-
-    # 4. Strict Heuristic Verification
-    if not company_name:
-        return None
-
-    # Discard if company name is just generic single industry/country word
-    name_clean = company_name.strip().lower()
-    generic_words = [
-        'finance', 'automotive', 'software', 'technology', 'jobs', 'vacancies',
-        'employment', 'careers', 'afghanistan', 'germany', 'united states',
-        'recruitment', 'candidates'
-    ]
-    if name_clean in generic_words or len(name_clean) < 2:
-        logger.debug(f"[LeadGeneration] Skipping generic company name: '{company_name}'")
-        return None
-
-    if any(junk in name_clean for junk in title_patterns):
-        logger.debug(f"[LeadGeneration] Skipping junk-named company: '{company_name}'")
-        return None
-
-    # Derive company_domain if missing
-    if not company_domain and website:
-        try:
-            parsed_uri = urlparse(website if website.startswith(('http://', 'https://')) else f"https://{website}")
-            netloc = parsed_uri.netloc.replace('www.', '')
-            if 'linkedin.com' not in netloc:
-                company_domain = netloc
-        except Exception:
-            company_domain = ''
-
-    return {
-        'company': company_name[:100],
-        'website': website[:255] if website else None,
-        'company_domain': company_domain[:255] if company_domain else None,
-        'linkedin': linkedin_url[:255] if linkedin_url else None,
-        'industry': industry[:100] if industry else None,
-        'company_size': company_size[:100] if company_size else None,
-        'employee_count': employee_count,
-        'location': location[:100] if location else None,
-        'hiring_activity': default_hiring_activity or 'Active',
-        'job_title': default_job_title[:255] if default_job_title else None,
-        'job_type': 'Full-Time',
-        'job_level': 'Mid',
-        'is_remote': False,
-        'job_url': raw_url[:500] if (is_job_posting and raw_url) else None,
-        'description': description,
-        'source': 'apify_crawler',
-        'status': 'new',
-        'detected_at': timezone.now(),
-        'domain_source': 'apify',
-        'enriched_at': timezone.now(),
-    }
-
-
-def _build_company_search_query(industry: str, country: str) -> str:
-    """
-    Builds the search query targeting genuine company pages on LinkedIn.
-    """
-    query_parts = []
-    if industry:
-        query_parts.append(f'"{industry.strip()}"')
-    if country:
-        query_parts.append(f'"{country.strip()}"')
-
-    combined_terms = " ".join(query_parts) if query_parts else "Companies"
-    return f'site:linkedin.com/company/ {combined_terms}'.strip()
-
-
-def _build_job_posting_search_query(job_title: str, country: str) -> str:
-    """
-    Builds the search query targeting companies actively hiring for a job title.
-    """
-    query_parts = [f'"{job_title.strip()}"']
-    if country:
-        query_parts.append(f'"{country.strip()}"')
-
-    combined_terms = " ".join(query_parts)
-    return f'site:linkedin.com/jobs/ {combined_terms}'.strip()
-
-
 def _process_apify_lead_generation_in_background(session_id: str, agency_id: int, user_id: str = None) -> None:
     """
-    Background worker that runs the Apify actor, normalizes and verifies authentic companies,
-    and stores generated leads in the database.
+    Background worker: runs the hiring-signal pipeline (recent jobs -> relevance -> contacts)
+    and stores the resulting leads.
     """
     try:
         session = LeadGenerationSession.objects.get(id=session_id)
         agency = Agency.objects.get(id=agency_id)
         user = User.objects.get(id=user_id) if user_id else None
 
-        actor_id = getattr(settings, 'APIFY_LEAD_ACTOR_ID', 'apify/google-search-scraper')
-        client = ApifyClient()
-
-        # Build targeted search queries: company pages always, plus job postings when a role is targeted
-        search_queries = [_build_company_search_query(session.industry, session.country)]
-        if session.job_title:
-            search_queries.append(_build_job_posting_search_query(session.job_title, session.country))
-
-        # apify/google-search-scraper expects newline-separated queries in a single run
-        linkedin_query = "\n".join(search_queries)
-
         logger.info(
-            f"[LeadGeneration] Session={session_id} | Starting Apify run. "
-            f"Target Queries='{linkedin_query}', Industry='{session.industry}', "
-            f"Job Title='{session.job_title}', Country='{session.country}'"
+            f"[LeadGeneration] Session={session_id} | job_title='{session.job_title}', "
+            f"industry='{session.industry}', country='{session.country}'"
         )
 
-        # Actor input payload
-        if "google-search-scraper" in actor_id:
-            actor_input = {
-                "queries": linkedin_query,
-                "maxPagesPerQuery": 1,
-                "resultsPerPage": 15
-            }
-        else:
-            actor_input = {
-                "country": session.country,
-                "industry": session.industry,
-                "job_title": session.job_title,
-                "company_size": session.company_size,
-                "hiring_activity": session.hiring_activity,
-                "queries": linkedin_query
-            }
+        leads_data = build_leads(
+            country=session.country or '',
+            industry=session.industry or '',
+            job_title=session.job_title or '',
+            company_size=session.company_size or '',
+            hiring_activity=session.hiring_activity or '',
+            existing_keys=existing_company_keys(agency),
+        )
 
-        logger.info(f"[LeadGeneration] Apify Actor ID: '{actor_id}' | Payload sent: {json.dumps(actor_input, default=str)}")
+        created_leads = ingest_bulk_leads(agency, leads_data, user=user) if leads_data else []
 
-        # Run the Apify actor
-        dataset_items = client.run_actor(actor_id=actor_id, run_input=actor_input, timeout_secs=180)
-
-        # Flatten organicResults if returned by google-search-scraper
-        raw_items = []
-        for item in dataset_items:
-            if "organicResults" in item and isinstance(item["organicResults"], list):
-                raw_items.extend(item["organicResults"])
-            else:
-                raw_items.append(item)
-
-        logger.info(f"[LeadGeneration] Received {len(dataset_items)} dataset items ({len(raw_items)} raw items) from Apify.")
-
-        # Initialize CompanyParser
-        company_parser = None
-        try:
-            company_parser = CompanyParser()
-        except Exception as parser_err:
-            logger.warning(f"[LeadGeneration] Could not initialize CompanyParser: {parser_err}")
-
-        # Transform and validate raw items into genuine company leads
-        leads_data = []
-        seen_companies = set()
-
-        for item in raw_items:
-            lead_dict = _normalize_lead_from_item(
-                item=item,
-                default_country=session.country or '',
-                default_industry=session.industry or '',
-                default_size=session.company_size or '',
-                default_job_title=session.job_title or '',
-                default_hiring_activity=session.hiring_activity or '',
-                source_kind=_resolve_source_kind(item),
-                company_parser=company_parser
-            )
-            if lead_dict and lead_dict.get('company'):
-                comp_key = lead_dict['company'].lower()
-                if comp_key not in seen_companies:
-                    seen_companies.add(comp_key)
-                    leads_data.append(lead_dict)
-
-        logger.info(f"[LeadGeneration] Extracted {len(leads_data)} verified company leads out of {len(raw_items)} items.")
-
-        created_leads = []
-        if leads_data:
-            created_leads = ingest_bulk_leads(agency, leads_data, user=user)
-
-        # Mark session completed
         session.status = 'completed'
         session.save(update_fields=['status'])
 
-        # Notify user
         if user:
             from apps.notifications.services.notifications import create_notification
             try:
@@ -466,9 +149,11 @@ def _process_apify_lead_generation_in_background(session_id: str, agency_id: int
                     target_desc += f" hiring for {session.job_title}"
 
                 if created_leads:
-                    msg = f"Lead generation completed. {len(created_leads)} verified company leads found for {target_desc}."
+                    with_email = sum(1 for l in created_leads if l.contact_email)
+                    msg = (f"Lead generation completed. {len(created_leads)} recently-hiring companies found "
+                           f"for {target_desc} ({with_email} with a contact email).")
                 else:
-                    msg = f"Lead generation completed for {target_desc}. No new company profiles were found matching criteria."
+                    msg = f"Lead generation completed for {target_desc}. No new recently-hiring companies matched."
 
                 create_notification(
                     user=user,
@@ -481,7 +166,7 @@ def _process_apify_lead_generation_in_background(session_id: str, agency_id: int
                 logger.error(f"Failed to send lead generation notification: {notif_err}")
 
     except Exception as e:
-        logger.exception(f"Error in Apify lead generation background task for session {session_id}: {e}")
+        logger.exception(f"Error in lead generation background task for session {session_id}: {e}")
         try:
             LeadGenerationSession.objects.filter(id=session_id).update(status='failed')
         except Exception:

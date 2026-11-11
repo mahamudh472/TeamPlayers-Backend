@@ -74,6 +74,13 @@ class Leads(models.Model):
     domain_source = models.CharField(max_length=100, blank=True, null=True)
     enriched_at = models.DateTimeField(blank=True, null=True)
 
+    # Fresh-hiring-signal fields
+    job_posted_at = models.DateTimeField(blank=True, null=True)
+    open_roles_count = models.IntegerField(blank=True, null=True)
+    contact_title = models.CharField(max_length=255, blank=True, null=True)
+    email_confidence = models.CharField(max_length=20, blank=True, null=True)
+    lead_score = models.IntegerField(blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

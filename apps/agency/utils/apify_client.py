@@ -28,7 +28,7 @@ class ApifyClient:
             "Authorization": f"Bearer {self.api_key}"
         }
 
-    def run_actor(self, actor_id: str, run_input: dict, timeout_secs: int = 300, poll_interval: int = 3) -> list[dict]:
+    def run_actor(self, actor_id: str, run_input: dict, timeout_secs: int = 300, poll_interval: int = 3, allow_partial: bool = True) -> list[dict]:
         """
         Runs an Apify actor, polls until completion, and returns the dataset items.
         
@@ -37,6 +37,7 @@ class ApifyClient:
             run_input: The input dictionary payload for the actor.
             timeout_secs: Maximum time in seconds to wait for completion.
             poll_interval: Interval between polling checks.
+            allow_partial: Return early with partial dataset items while the run is still going.
 
         Returns:
             list[dict]: List of items from the actor's default dataset.
@@ -93,7 +94,7 @@ class ApifyClient:
                     raise ApifyError(f"Apify actor run ended with status: {run_status}")
 
                 # If the run has been active for more than 20s and dataset already has items, return them
-                if time.time() - start_time > 20 and dataset_id:
+                if allow_partial and time.time() - start_time > 20 and dataset_id:
                     items = self.get_dataset_items(dataset_id)
                     if items and len(items) > 0:
                         has_data = any(

@@ -314,9 +314,16 @@ CANDIDATE_GATHERING_PROVIDER = os.getenv('CANDIDATE_GATHERING_PROVIDER', 'n8n').
 
 # Apify settings
 APIFY_API_KEY = os.getenv('APIFY_API_KEY', '')
-APIFY_LEAD_ACTOR_ID = os.getenv('APIFY_LEAD_ACTOR_ID', 'apify/google-search-scraper')
+APIFY_LEAD_ACTOR_ID = os.getenv('APIFY_LEAD_ACTOR_ID', 'curious_coder/linkedin-jobs-scraper')
 APIFY_CANDIDATE_ACTOR_ID = os.getenv('APIFY_CANDIDATE_ACTOR_ID', 'apify/google-search-scraper')
 APIFY_LINKEDIN_PROFILE_ACTOR_ID = os.getenv('APIFY_LINKEDIN_PROFILE_ACTOR_ID', 'harvestapi/linkedin-profile-scraper')
+
+# Lead generation pipeline tuning
+LUSHA_API_KEY = os.getenv('LUSHA_API_KEY', '')
+LEAD_MAX_JOB_AGE_DAYS = int(os.getenv('LEAD_MAX_JOB_AGE_DAYS', '14'))
+LEAD_MAX_JOBS_FETCHED = int(os.getenv('LEAD_MAX_JOBS_FETCHED', '80'))
+LEAD_MAX_ENRICHED_COMPANIES = int(os.getenv('LEAD_MAX_ENRICHED_COMPANIES', '25'))
+LEAD_REQUIRE_CONTACT_EMAIL = os.getenv('LEAD_REQUIRE_CONTACT_EMAIL', 'false').lower() == 'true'
 
 # Logger config
 from .logger_conf import LOGGING
