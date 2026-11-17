@@ -412,8 +412,8 @@ Request JSON:
 | `country` | string | Yes | Target country (max 100 chars) |
 | `industry` | string | Yes | Target industry (max 100 chars) |
 | `job_title` | string | No | Role to target. When set, generation also searches for companies actively hiring for this role (max 255 chars) |
-| `company_size` | string | Yes | Target company size (max 100 chars) |
-| `hiring_activity` | string | Yes | Target hiring activity (max 100 chars) |
+| `company_size` | string | No | Target company size (max 100 chars) |
+| `hiring_activity` | string | No | Target hiring activity (max 100 chars) |
 
 ```json
 {

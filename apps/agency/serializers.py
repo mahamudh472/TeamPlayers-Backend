@@ -775,8 +775,8 @@ class LeadGenerationSerializer(serializers.Serializer):
     country = serializers.CharField(max_length=100, required=True)
     industry = serializers.CharField(max_length=100, required=True)
     job_title = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
-    company_size = serializers.CharField(max_length=100, required=True)
-    hiring_activity = serializers.CharField(max_length=100, required=True)
+    company_size = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    hiring_activity = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
 
 
 class LeadGenerationSessionSerializer(serializers.ModelSerializer):

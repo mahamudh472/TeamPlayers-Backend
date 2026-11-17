@@ -16,8 +16,8 @@ def create_lead_generation_session(
     user: User,
     country: str,
     industry: str,
-    company_size: str,
-    hiring_activity: str,
+    company_size: str = None,
+    hiring_activity: str = None,
     job_title: str = None
 ) -> LeadGenerationSession:
     """
